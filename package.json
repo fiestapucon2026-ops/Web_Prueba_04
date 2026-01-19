@@ -1,0 +1,30 @@
+{
+  "name": "mercadopago-vercel-integration",
+  "version": "1.0.0",
+  "description": "Integración de Mercado Pago SDK v2 en Vercel",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build step required'",
+    "start": "node api/index.js"
+  },
+  "keywords": [
+    "mercadopago",
+    "vercel",
+    "payments"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mercadopago": "^2.1.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "vercel": "^34.0.0"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}

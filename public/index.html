@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integración Mercado Pago - Vercel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .product-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+
+        .product-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .product-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .product-price {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-top: 12px;
+        }
+
+        .btn-pagar {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-pagar:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-pagar:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-pagar:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .error {
+            display: none;
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .success {
+            display: none;
+            background: #efe;
+            border: 1px solid #cfc;
+            color: #3c3;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+
+        .success.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛒 Tienda de Prueba</h1>
+        <p class="subtitle">Integración Mercado Pago SDK v2 - Vercel</p>
+
+        <div class="product-card">
+            <div class="product-title">Producto de Prueba</div>
+            <div class="product-details">
+                <span>Cantidad:</span>
+                <span id="quantity">1</span>
+            </div>
+            <div class="product-details">
+                <span>Precio unitario:</span>
+                <span>$<span id="unit-price">1000</span></span>
+            </div>
+            <div class="product-price">
+                Total: $<span id="total-price">1000</span>
+            </div>
+        </div>
+
+        <button id="btnPagar" class="btn-pagar" onclick="crearPreferencia()">
+            Pagar con Mercado Pago
+        </button>
+
+        <div id="loading" class="loading">
+            Creando preferencia de pago...
+        </div>
+
+        <div id="error" class="error"></div>
+        <div id="success" class="success"></div>
+    </div>
+
+    <script>
+        // Datos hardcodeados para la prueba (según especificación)
+        const PRODUCT_DATA = {
+            title: 'Producto de Prueba - Integración MP',
+            price: 1000,  // Número, no string
+            quantity: 1   // Número, no string
+        };
+
+        /**
+         * Función para crear la preferencia de pago
+         */
+        async function crearPreferencia() {
+            const btnPagar = document.getElementById('btnPagar');
+            const loading = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+            const successDiv = document.getElementById('success');
+
+            // Resetear estados
+            btnPagar.disabled = true;
+            loading.classList.add('active');
+            errorDiv.classList.remove('active');
+            successDiv.classList.remove('active');
+            errorDiv.textContent = '';
+            successDiv.textContent = '';
+
+            try {
+                // Llamada al endpoint del backend
+                const response = await fetch('/api/create_preference', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(PRODUCT_DATA)
+                });
+
+                // Parsear respuesta
+                const data = await response.json();
+
+                // Verificar si la respuesta es exitosa
+                if (!response.ok) {
+                    throw new Error(data.message || `Error ${response.status}: ${data.error || 'Error desconocido'}`);
+                }
+
+                // Validar que recibimos el ID de la preferencia
+                if (!data.id) {
+                    throw new Error('No se recibió el ID de la preferencia en la respuesta');
+                }
+
+                // Mostrar éxito
+                successDiv.textContent = `Preferencia creada exitosamente. ID: ${data.id}`;
+                successDiv.classList.add('active');
+
+                // Redirigir a Mercado Pago
+                // Priorizar sandbox_init_point si está disponible (modo desarrollo)
+                const initPoint = data.sandbox_init_point || data.init_point;
+
+                if (initPoint) {
+                    // Redirigir a la URL de checkout de Mercado Pago
+                    window.location.href = initPoint;
+                } else {
+                    // Fallback: construir URL manualmente
+                    const mpUrl = `https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=${data.id}`;
+                    window.location.href = mpUrl;
+                }
+
+            } catch (error) {
+                // Manejo de errores
+                console.error('Error al crear preferencia:', error);
+                
+                errorDiv.textContent = `Error: ${error.message}`;
+                errorDiv.classList.add('active');
+
+                // Rehabilitar botón
+                btnPagar.disabled = false;
+                loading.classList.remove('active');
+            }
+        }
+
+        // Inicialización: calcular total
+        document.addEventListener('DOMContentLoaded', () => {
+            const quantity = PRODUCT_DATA.quantity;
+            const unitPrice = PRODUCT_DATA.price;
+            const total = quantity * unitPrice;
+
+            document.getElementById('quantity').textContent = quantity;
+            document.getElementById('unit-price').textContent = unitPrice.toLocaleString('es-AR');
+            document.getElementById('total-price').textContent = total.toLocaleString('es-AR');
+        });
+    </script>
+</body>
+</html>
