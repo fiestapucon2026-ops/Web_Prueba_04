@@ -1,16 +1,32 @@
-import MercadoPagoConfig, { Preference } from 'mercadopago';
+import MercadoPagoConfig, { Preference, Payment } from 'mercadopago';
 
-// 1. Verificación de Seguridad: Detiene la app si falta el token
-if (!process.env.MP_ACCESS_TOKEN) {
-  throw new Error('🔴 ERROR CRÍTICO: Falta MP_ACCESS_TOKEN en .env.local');
+// 1. Verificación de Seguridad: Solo validar en runtime, no en build time
+const accessToken = process.env.MP_ACCESS_TOKEN;
+
+// 2. Inicializar el Cliente Maestro (solo si existe el token)
+let client: MercadoPagoConfig | null = null;
+let preferenceClient: Preference | null = null;
+let paymentClient: Payment | null = null;
+
+if (accessToken) {
+  client = new MercadoPagoConfig({
+    accessToken: accessToken,
+    options: { timeout: 5000 }
+  });
+  preferenceClient = new Preference(client);
+  paymentClient = new Payment(client);
+} else if (typeof window === 'undefined') {
+  // Solo warning en servidor, no en cliente
+  console.warn('⚠️ ADVERTENCIA: MP_ACCESS_TOKEN no configurado. Las funciones de pago no estarán disponibles.');
 }
 
-// 2. Inicializar el Cliente Maestro
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN,
-  options: { timeout: 5000 }
-});
+// 3. Exportar con validación de runtime
+export { preferenceClient, paymentClient };
 
-// 3. Exportar los recursos específicos que usaremos (Preferencias de Pago)
-// Esto evita tener que instanciar el cliente en cada archivo.
-export const preferenceClient = new Preference(client);
+// Helper para validar que el cliente esté inicializado
+export function requireMercadoPagoClient(): { preferenceClient: Preference; paymentClient: Payment } {
+  if (!preferenceClient || !paymentClient || !accessToken) {
+    throw new Error('🔴 ERROR: MP_ACCESS_TOKEN no está configurado. Configure la variable de entorno en Vercel.');
+  }
+  return { preferenceClient, paymentClient };
+}

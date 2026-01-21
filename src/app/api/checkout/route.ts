@@ -1,4 +1,4 @@
-import { preferenceClient } from '@/lib/mercadopago';
+import { requireMercadoPagoClient } from '@/lib/mercadopago';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -10,7 +10,10 @@ export async function POST(request: Request) {
     // 2. Definimos la URL base
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.festivalpucon.cl';
 
-    // 3. Creamos la "Preferencia" (La orden de compra)
+    // 3. Validar y obtener cliente de Mercado Pago
+    const { preferenceClient } = requireMercadoPagoClient();
+
+    // 4. Creamos la "Preferencia" (La orden de compra)
     const preference = await preferenceClient.create({
       body: {
         items: [
