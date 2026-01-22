@@ -24,8 +24,8 @@ export default function PantallaInicio() {
         />
 
         {/* Imagen "Festival1.png" en último 1/4 de altura */}
-        <div className="absolute bottom-0 left-0 right-0 h-1/4 flex items-center justify-center z-40 pointer-events-none">
-          <div className="w-3/4 flex items-center justify-center">
+        <div className="absolute bottom-0 left-0 right-0 h-1/4 flex flex-col items-center justify-center z-40 pointer-events-none">
+          <div className="w-3/4 flex items-center justify-center pointer-events-auto">
             <Image
               src="/images/Festival1.png"
               alt="Festival Pucón 2026"
@@ -34,6 +34,15 @@ export default function PantallaInicio() {
               className="w-full h-auto object-contain"
               priority
             />
+          </div>
+          {/* Botón "...como llegar" */}
+          <div className="mt-4 pointer-events-auto">
+            <a
+              href="#ubicacion"
+              className="inline-block bg-black text-[#ffadad] border border-[#ff2828] px-6 py-3 rounded-lg shadow-[0_4px_12px_#ffd6d6] hover:bg-[#1a1a1a] transition-colors duration-200 font-medium"
+            >
+              ...como llegar
+            </a>
           </div>
         </div>
       </div>
@@ -58,52 +67,91 @@ export default function PantallaInicio() {
         <div className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] max-w-7xl mx-auto">
           {/* Grid de 4 Ventanas Hijas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-            {/* Ventana 1: Resumen */}
-            <div className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-full">
-              <h3 className="text-2xl font-semibold text-white mb-4">Resumen</h3>
-              <p className="text-gray-300 text-sm leading-relaxed">
-                Información general sobre el Festival Pucón. Conoce más sobre este evento único que combina música, emprendimiento y actividades al aire libre.
-              </p>
+            {/* Ventana 1: Resumen - ID: ventana-evento */}
+            <div id="ventana-evento" className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-full relative overflow-hidden group">
+              {/* Imagen por defecto */}
+              <div className="absolute inset-0 group-hover:hidden">
+                <Image
+                  src="/images/Evento.png"
+                  alt="El Evento"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              {/* Texto que aparece al hover */}
+              <div className="hidden group-hover:block relative z-10">
+                <h3 className="text-2xl font-semibold text-white mb-4">El Evento: Respira. Estás en el Festival Pucón.</h3>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  ¿Sientes eso? Es el sonido del viento entre los árboles nativos, no el de una bocina. A solo minutos del centro, pero a un mundo de distancia del caos, te esperan 4.5 hectáreas de libertad. Olvida la odisea de buscar dónde dejar tu auto; nuestro estacionamiento privado te recibe para que tu única preocupación sea decidir por dónde empezar. Aquí, la naturaleza no es el paisaje, es tu anfitriona. Un ambiente seguro, amplio y diseñado para quienes saben que el verdadero lujo es la tranquilidad.
+                </p>
+              </div>
             </div>
 
-            {/* Ventana 2: Música en Vivo */}
-            <Link
-              href="/musica-en-vivo"
-              className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-full block transition-transform hover:scale-105 cursor-pointer"
-            >
-              <h3 className="text-2xl font-semibold text-white mb-4">Música en Vivo</h3>
-              <p className="text-gray-300 text-sm leading-relaxed">
-                Descubre los artistas y bandas que estarán presentes en el festival. Explora la programación musical completa.
-              </p>
-            </Link>
+            {/* Ventana 2: Música en Vivo - DESACTIVADA */}
+            <div className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-full relative overflow-hidden group">
+              {/* Imagen por defecto */}
+              <div className="absolute inset-0 group-hover:hidden">
+                <Image
+                  src="/images/Musica en vivo.png"
+                  alt="Música en Vivo"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              {/* Texto que aparece al hover */}
+              <div className="hidden group-hover:block relative z-10">
+                <h3 className="text-2xl font-semibold text-white mb-4">Line-up: El pulso del Sur bajo las estrellas.</h3>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  Las tardes en Pucón tienen un nuevo ritmo. Todos los viernes, sábados y domingos, el escenario se enciende con la fuerza de nuestra tierra. Déjate llevar por la nostalgia y la energía de "SAN MIGUEL", el tributo definitivo a Los Prisioneros, o baila hasta que el cuerpo aguante con todo el sabor de "LOS TIGRES DEL SUR". Durante todo enero y febrero, hemos curado una selección con los mejores exponentes de la música chilena. Es el momento de cerrar los ojos, levantar tu vaso de cerveza artesanal y sentir que la música, finalmente, suena a vacaciones.
+                </p>
+              </div>
+            </div>
 
-            {/* Ventana 3: Emprendedores */}
-            <Link
-              href="/emprendedores"
-              className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-full block transition-transform hover:scale-105 cursor-pointer"
-            >
-              <h3 className="text-2xl font-semibold text-white mb-4">Emprendedores</h3>
-              <p className="text-gray-300 text-sm leading-relaxed">
-                Conoce a los emprendedores locales que estarán presentes. Explora sus productos y servicios.
-              </p>
-            </Link>
+            {/* Ventana 3: Emprendedores - DESACTIVADA */}
+            <div className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-full relative overflow-hidden group">
+              {/* Imagen por defecto */}
+              <div className="absolute inset-0 group-hover:hidden">
+                <Image
+                  src="/images/Emprendedores.png"
+                  alt="Emprendedores"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              {/* Texto que aparece al hover */}
+              <div className="hidden group-hover:block relative z-10">
+                <h3 className="text-2xl font-semibold text-white mb-4">Tesoros Locales: El alma de la Araucanía en tus manos.</h3>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  No es solo una feria, es un encuentro con la historia viva. Aquí los emprendedores y artesanos reales de nuestra zona comparten contigo el patrimonio de la región. Cada pieza de artesanía, cada frasco de mermelada y cada objeto de charcutería es un Tesoro Local con identidad. Al llevarte uno, no compras un objeto: te llevas un pedazo del bosque, un secreto de familia y el esfuerzo de manos que mantienen viva nuestra cultura. Es Pucón auténtico, sin filtros.
+                </p>
+              </div>
+            </div>
 
-            {/* Ventana 4: Actividades */}
-            <Link
-              href="/actividades"
-              className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-full block transition-transform hover:scale-105 cursor-pointer"
-            >
-              <h3 className="text-2xl font-semibold text-white mb-4">Actividades</h3>
-              <p className="text-gray-300 text-sm leading-relaxed">
-                Todas las actividades que podrás disfrutar durante el festival. Desde talleres hasta actividades recreativas.
-              </p>
-            </Link>
+            {/* Ventana 4: Actividades - DESACTIVADA */}
+            <div className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-full relative overflow-hidden group">
+              {/* Imagen por defecto */}
+              <div className="absolute inset-0 group-hover:hidden">
+                <Image
+                  src="/images/Actividades.png"
+                  alt="Actividades"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              {/* Texto que aparece al hover */}
+              <div className="hidden group-hover:block relative z-10">
+                <h3 className="text-2xl font-semibold text-white mb-4">Experiencias: Libertad para ellos, paz para ti.</h3>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  Sabemos que tus hijos tienen energía acumulada tras horas de viaje o filas en el centro. En el Festival Pucón, el recinto es 100% seguro y cerrado, diseñado para que ellos vuelvan a correr por el pasto, participen en concursos y rían con el karaoke mientras tú los vigilas de lejos con un asado costumbrista en la mesa. Desde juegos pensados para los más pequeños hasta desafíos para adolescentes, este es el lugar donde ellos crean sus mejores recuerdos de verano... y tú, finalmente, logras descansar.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Sección Ubicación - Ventana Madre */}
-      <div className="w-full bg-black py-16 px-4 lg:px-8">
+      <div id="ubicacion" className="w-full bg-black py-16 px-4 lg:px-8">
         {/* Contenedor Padre con borde gris y sombra gris */}
         <div className="bg-black border border-[#737373] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#a6a6a6] max-w-7xl mx-auto">
           <h2 className="text-center text-white text-3xl lg:text-4xl font-bold mb-12">
