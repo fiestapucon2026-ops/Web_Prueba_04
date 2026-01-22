@@ -68,9 +68,9 @@ export default function PantallaInicio() {
           {/* Grid de 4 Ventanas Hijas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
             {/* Ventana 1: Resumen - ID: ventana-evento */}
-            <div id="ventana-evento" className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-full relative overflow-hidden group">
+            <div id="ventana-evento" className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-[450px] relative overflow-hidden group">
               {/* Imagen por defecto */}
-              <div className="absolute inset-0 group-hover:hidden">
+              <div className="absolute inset-0 group-hover:hidden h-full">
                 <Image
                   src="/images/Evento.png"
                   alt="El Evento"
@@ -79,7 +79,7 @@ export default function PantallaInicio() {
                 />
               </div>
               {/* Texto que aparece al hover */}
-              <div className="hidden group-hover:block relative z-10">
+              <div className="hidden group-hover:flex relative z-10 h-full flex-col">
                 <h3 className="text-2xl font-semibold text-white mb-4">El Evento: Respira. Estás en el Festival Pucón.</h3>
                 <p className="text-gray-300 text-sm leading-relaxed">
                   ¿Sientes eso? Es el sonido del viento entre los árboles nativos, no el de una bocina. A solo minutos del centro, pero a un mundo de distancia del caos, te esperan 4.5 hectáreas de libertad. Olvida la odisea de buscar dónde dejar tu auto; nuestro estacionamiento privado te recibe para que tu única preocupación sea decidir por dónde empezar. Aquí, la naturaleza no es el paisaje, es tu anfitriona. Un ambiente seguro, amplio y diseñado para quienes saben que el verdadero lujo es la tranquilidad.
@@ -88,9 +88,9 @@ export default function PantallaInicio() {
             </div>
 
             {/* Ventana 2: Música en Vivo - DESACTIVADA */}
-            <div className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-full relative overflow-hidden group">
+            <div className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-[450px] relative overflow-hidden group">
               {/* Imagen por defecto */}
-              <div className="absolute inset-0 group-hover:hidden">
+              <div className="absolute inset-0 group-hover:hidden h-full">
                 <Image
                   src="/images/Musica en vivo.png"
                   alt="Música en Vivo"
@@ -99,7 +99,7 @@ export default function PantallaInicio() {
                 />
               </div>
               {/* Texto que aparece al hover */}
-              <div className="hidden group-hover:block relative z-10">
+              <div className="hidden group-hover:flex relative z-10 h-full flex-col">
                 <h3 className="text-2xl font-semibold text-white mb-4">Line-up: El pulso del Sur bajo las estrellas.</h3>
                 <p className="text-gray-300 text-sm leading-relaxed">
                   Las tardes en Pucón tienen un nuevo ritmo. Todos los viernes, sábados y domingos, el escenario se enciende con la fuerza de nuestra tierra. Déjate llevar por la nostalgia y la energía de "SAN MIGUEL", el tributo definitivo a Los Prisioneros, o baila hasta que el cuerpo aguante con todo el sabor de "LOS TIGRES DEL SUR". Durante todo enero y febrero, hemos curado una selección con los mejores exponentes de la música chilena. Es el momento de cerrar los ojos, levantar tu vaso de cerveza artesanal y sentir que la música, finalmente, suena a vacaciones.
@@ -108,9 +108,9 @@ export default function PantallaInicio() {
             </div>
 
             {/* Ventana 3: Emprendedores - DESACTIVADA */}
-            <div className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-full relative overflow-hidden group">
+            <div className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-[450px] relative overflow-hidden group">
               {/* Imagen por defecto */}
-              <div className="absolute inset-0 group-hover:hidden">
+              <div className="absolute inset-0 group-hover:hidden h-full">
                 <Image
                   src="/images/Emprendedores.png"
                   alt="Emprendedores"
@@ -119,7 +119,7 @@ export default function PantallaInicio() {
                 />
               </div>
               {/* Texto que aparece al hover */}
-              <div className="hidden group-hover:block relative z-10">
+              <div className="hidden group-hover:flex relative z-10 h-full flex-col">
                 <h3 className="text-2xl font-semibold text-white mb-4">Tesoros Locales: El alma de la Araucanía en tus manos.</h3>
                 <p className="text-gray-300 text-sm leading-relaxed">
                   No es solo una feria, es un encuentro con la historia viva. Aquí los emprendedores y artesanos reales de nuestra zona comparten contigo el patrimonio de la región. Cada pieza de artesanía, cada frasco de mermelada y cada objeto de charcutería es un Tesoro Local con identidad. Al llevarte uno, no compras un objeto: te llevas un pedazo del bosque, un secreto de familia y el esfuerzo de manos que mantienen viva nuestra cultura. Es Pucón auténtico, sin filtros.
@@ -128,9 +128,9 @@ export default function PantallaInicio() {
             </div>
 
             {/* Ventana 4: Actividades - DESACTIVADA */}
-            <div className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-full relative overflow-hidden group">
+            <div className="bg-black border border-[#cc0000] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#ff9999] h-[450px] relative overflow-hidden group">
               {/* Imagen por defecto */}
-              <div className="absolute inset-0 group-hover:hidden">
+              <div className="absolute inset-0 group-hover:hidden h-full">
                 <Image
                   src="/images/Actividades.png"
                   alt="Actividades"
@@ -139,7 +139,7 @@ export default function PantallaInicio() {
                 />
               </div>
               {/* Texto que aparece al hover */}
-              <div className="hidden group-hover:block relative z-10">
+              <div className="hidden group-hover:flex relative z-10 h-full flex-col">
                 <h3 className="text-2xl font-semibold text-white mb-4">Experiencias: Libertad para ellos, paz para ti.</h3>
                 <p className="text-gray-300 text-sm leading-relaxed">
                   Sabemos que tus hijos tienen energía acumulada tras horas de viaje o filas en el centro. En el Festival Pucón, el recinto es 100% seguro y cerrado, diseñado para que ellos vuelvan a correr por el pasto, participen en concursos y rían con el karaoke mientras tú los vigilas de lejos con un asado costumbrista en la mesa. Desde juegos pensados para los más pequeños hasta desafíos para adolescentes, este es el lugar donde ellos crean sus mejores recuerdos de verano... y tú, finalmente, logras descansar.
