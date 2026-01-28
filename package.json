@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "verify:build": "npm run build",
+    "verify:api": "node scripts/verify-api.js",
+    "check:env": "node scripts/check-env.js"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",
