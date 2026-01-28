@@ -1,53 +1,132 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { EmailSchema, QuantitySchema } from '@/lib/schemas';
 
-type TicketType = 'general' | 'vip';
-
-interface TicketOption {
-  id: TicketType;
+// Interfaces para datos dinámicos desde API
+interface TicketType {
+  id: string;
   name: string;
   price: number;
-  description: string;
 }
 
-const TICKET_OPTIONS: TicketOption[] = [
-  {
-    id: 'general',
-    name: 'Ticket General',
-    price: 10000,
-    description: 'Acceso general al festival',
-  },
-  {
-    id: 'vip',
-    name: 'Ticket VIP',
-    price: 25000,
-    description: 'Acceso VIP con beneficios exclusivos',
-  },
-];
+interface Event {
+  id: string;
+  name: string;
+  date: string;
+  venue: string;
+}
+
+interface InventoryItem {
+  id: string;
+  event_id: string;
+  ticket_type_id: string;
+  total_capacity: number;
+  available_stock: number;
+}
+
+interface TypesResponse {
+  ticket_types: TicketType[];
+  events: Event[];
+  inventory: InventoryItem[];
+}
 
 export default function TicketPage() {
-  const [ticketType, setTicketType] = useState<TicketType>('general');
+  const [data, setData] = useState<TypesResponse | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Estado del formulario
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [email, setEmail] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
+  const [purchaseLoading, setPurchaseLoading] = useState<boolean>(false);
+
+  // Cargar datos dinámicos al montar
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch('/api/tickets/types');
+        if (!response.ok) {
+          throw new Error('Error al cargar tipos de tickets');
+        }
+        const result: TypesResponse = await response.json();
+        setData(result);
+        
+        // Auto-seleccionar primer evento y tipo si existen
+        if (result.events.length > 0 && result.ticket_types.length > 0) {
+          setSelectedEventId(result.events[0].id);
+          setSelectedTicketTypeId(result.ticket_types[0].id);
+        }
+      } catch (err) {
+        console.error('Error al cargar datos:', err);
+        setError('Error al cargar la información de tickets. Por favor, recarga la página.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Obtener tipos de tickets disponibles para el evento seleccionado
+  const getAvailableTicketTypes = (): TicketType[] => {
+    if (!data || !selectedEventId) return [];
+    
+    const availableInventory = data.inventory.filter(
+      inv => inv.event_id === selectedEventId && inv.available_stock > 0
+    );
+    
+    const availableTypeIds = new Set(availableInventory.map(inv => inv.ticket_type_id));
+    
+    return data.ticket_types.filter(tt => availableTypeIds.has(tt.id));
+  };
+
+  // Obtener stock disponible para la combinación seleccionada
+  const getAvailableStock = (): number => {
+    if (!data || !selectedEventId || !selectedTicketTypeId) return 0;
+    
+    const inventory = data.inventory.find(
+      inv => inv.event_id === selectedEventId && inv.ticket_type_id === selectedTicketTypeId
+    );
+    
+    return inventory?.available_stock || 0;
+  };
+
+  // Obtener precio del ticket seleccionado
+  const getSelectedTicketPrice = (): number => {
+    if (!data || !selectedTicketTypeId) return 0;
+    const ticketType = data.ticket_types.find(tt => tt.id === selectedTicketTypeId);
+    return ticketType?.price || 0;
+  };
 
   const handlePurchase = async () => {
-    // Validación de email (regex básico)
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    // Validación con schemas compartidos (validación manual pero consistente)
+    const emailValidation = EmailSchema.safeParse(email);
+    if (!emailValidation.success) {
       alert('Por favor, ingresa un email válido');
       return;
     }
 
-    // Validación de quantity
-    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 5) {
-      alert('La cantidad debe ser un número entre 1 y 5');
+    const quantityValidation = QuantitySchema.safeParse(quantity);
+    if (!quantityValidation.success) {
+      alert('La cantidad debe ser un número entre 1 y 10');
       return;
     }
 
-    // Activar loading
-    setLoading(true);
+    if (!selectedEventId || !selectedTicketTypeId) {
+      alert('Por favor, selecciona un evento y tipo de ticket');
+      return;
+    }
+
+    const availableStock = getAvailableStock();
+    if (quantity > availableStock) {
+      alert(`Stock insuficiente. Disponible: ${availableStock}, Solicitado: ${quantity}`);
+      return;
+    }
+
+    setPurchaseLoading(true);
 
     try {
       const response = await fetch('/api/tickets/create-preference', {
@@ -56,36 +135,61 @@ export default function TicketPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ticketTypeId: ticketType,
+          event_id: selectedEventId,
+          ticket_type_id: selectedTicketTypeId,
           quantity: quantity,
-          payerEmail: email,
+          payer_email: email,
         }),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
-      if (response.ok && data.init_point) {
+      if (response.ok && result.init_point) {
         // Redirección a Mercado Pago
-        window.location.href = data.init_point;
+        window.location.href = result.init_point;
       } else {
         // Error en la respuesta
-        alert(data.error || 'Error al procesar el pago. Por favor, intenta nuevamente.');
-        setLoading(false);
+        alert(result.error || 'Error al procesar el pago. Por favor, intenta nuevamente.');
+        setPurchaseLoading(false);
       }
-    } catch (error) {
-      console.error('Error al crear preferencia:', error);
+    } catch (err) {
+      console.error('Error al crear preferencia:', err);
       alert('Error de conexión. Por favor, verifica tu internet e intenta nuevamente.');
-      setLoading(false);
+      setPurchaseLoading(false);
     }
   };
 
   const handleQuantityChange = (value: number) => {
-    if (value >= 1 && value <= 5) {
+    const maxQuantity = Math.min(10, getAvailableStock());
+    if (value >= 1 && value <= maxQuantity) {
       setQuantity(value);
     }
   };
 
-  const selectedTicket = TICKET_OPTIONS.find((t) => t.id === ticketType);
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-slate-900 text-white py-12 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-xl">Cargando información de tickets...</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <main className="min-h-screen bg-slate-900 text-white py-12 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-xl text-red-400">{error || 'Error al cargar datos'}</p>
+        </div>
+      </main>
+    );
+  }
+
+  const availableTicketTypes = getAvailableTicketTypes();
+  const availableStock = getAvailableStock();
+  const selectedTicketPrice = getSelectedTicketPrice();
+  const totalAmount = selectedTicketPrice * quantity;
 
   return (
     <main className="min-h-screen bg-slate-900 text-white py-12 px-4">
@@ -98,80 +202,124 @@ export default function TicketPage() {
 
         {/* Contenedor Principal */}
         <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 md:p-8">
-          {/* Selección de Tipo de Ticket */}
+          {/* Selección de Evento */}
           <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">Selecciona tu ticket</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {TICKET_OPTIONS.map((ticket) => (
-                <button
-                  key={ticket.id}
-                  type="button"
-                  onClick={() => setTicketType(ticket.id)}
-                  disabled={loading}
-                  className={`p-6 rounded-lg border-2 transition-all text-left ${
-                    ticketType === ticket.id
-                      ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-slate-700 bg-slate-700/30 hover:border-slate-600'
-                  } ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-semibold">{ticket.name}</h3>
-                    <span className="text-2xl font-bold text-blue-400">
-                      ${ticket.price.toLocaleString('es-CL')}
-                    </span>
-                  </div>
-                  <p className="text-slate-400 text-sm">{ticket.description}</p>
-                </button>
+            <label htmlFor="event" className="block text-lg font-semibold mb-2">
+              Selecciona el Evento
+            </label>
+            <select
+              id="event"
+              value={selectedEventId}
+              onChange={(e) => {
+                setSelectedEventId(e.target.value);
+                setSelectedTicketTypeId(''); // Reset ticket type al cambiar evento
+              }}
+              disabled={purchaseLoading}
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+            >
+              <option value="">-- Selecciona un evento --</option>
+              {data.events.map((event) => (
+                <option key={event.id} value={event.id}>
+                  {event.name} - {new Date(event.date).toLocaleDateString('es-CL')} - {event.venue}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
+
+          {/* Selección de Tipo de Ticket */}
+          {selectedEventId && (
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-4">Selecciona tu ticket</h2>
+              {availableTicketTypes.length === 0 ? (
+                <p className="text-slate-400">No hay tickets disponibles para este evento</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {availableTicketTypes.map((ticketType) => {
+                    const inventory = data.inventory.find(
+                      inv => inv.event_id === selectedEventId && inv.ticket_type_id === ticketType.id
+                    );
+                    const stock = inventory?.available_stock || 0;
+                    const isSelected = selectedTicketTypeId === ticketType.id;
+
+                    return (
+                      <button
+                        key={ticketType.id}
+                        type="button"
+                        onClick={() => setSelectedTicketTypeId(ticketType.id)}
+                        disabled={purchaseLoading || stock === 0}
+                        className={`p-6 rounded-lg border-2 transition-all text-left ${
+                          isSelected
+                            ? 'border-blue-500 bg-blue-500/10'
+                            : 'border-slate-700 bg-slate-700/30 hover:border-slate-600'
+                        } ${purchaseLoading || stock === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="text-xl font-semibold">{ticketType.name}</h3>
+                          <span className="text-2xl font-bold text-blue-400">
+                            ${ticketType.price.toLocaleString('es-CL')}
+                          </span>
+                        </div>
+                        <p className="text-slate-400 text-sm">
+                          Stock disponible: {stock}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Cantidad */}
-          <div className="mb-6">
-            <label htmlFor="quantity" className="block text-lg font-semibold mb-2">
-              Cantidad
-            </label>
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => handleQuantityChange(quantity - 1)}
-                disabled={loading || quantity <= 1}
-                className="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-bold text-xl"
-              >
-                −
-              </button>
-              <input
-                id="quantity"
-                type="number"
-                min="1"
-                max="5"
-                value={quantity}
-                onChange={(e) => handleQuantityChange(Number(e.target.value))}
-                disabled={loading}
-                className="w-20 text-center bg-slate-700 border border-slate-600 rounded-lg py-2 text-lg font-semibold disabled:opacity-50"
-              />
-              <button
-                type="button"
-                onClick={() => handleQuantityChange(quantity + 1)}
-                disabled={loading || quantity >= 5}
-                className="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-bold text-xl"
-              >
-                +
-              </button>
-              <span className="text-slate-400">(Máximo 5 tickets)</span>
-            </div>
-          </div>
-
-          {/* Total */}
-          {selectedTicket && (
-            <div className="mb-6 p-4 bg-slate-700/50 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-lg">Total:</span>
-                <span className="text-2xl font-bold text-blue-400">
-                  ${(selectedTicket.price * quantity).toLocaleString('es-CL')}
-                </span>
+          {selectedTicketTypeId && (
+            <>
+              <div className="mb-6">
+                <label htmlFor="quantity" className="block text-lg font-semibold mb-2">
+                  Cantidad
+                </label>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => handleQuantityChange(quantity - 1)}
+                    disabled={purchaseLoading || quantity <= 1}
+                    className="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-bold text-xl"
+                  >
+                    −
+                  </button>
+                  <input
+                    id="quantity"
+                    type="number"
+                    min="1"
+                    max={Math.min(10, availableStock)}
+                    value={quantity}
+                    onChange={(e) => handleQuantityChange(Number(e.target.value))}
+                    disabled={purchaseLoading}
+                    className="w-20 text-center bg-slate-700 border border-slate-600 rounded-lg py-2 text-lg font-semibold disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleQuantityChange(quantity + 1)}
+                    disabled={purchaseLoading || quantity >= Math.min(10, availableStock)}
+                    className="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-bold text-xl"
+                  >
+                    +
+                  </button>
+                  <span className="text-slate-400">
+                    (Máximo {Math.min(10, availableStock)} tickets disponibles)
+                  </span>
+                </div>
               </div>
-            </div>
+
+              {/* Total */}
+              <div className="mb-6 p-4 bg-slate-700/50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg">Total:</span>
+                  <span className="text-2xl font-bold text-blue-400">
+                    ${totalAmount.toLocaleString('es-CL')} CLP
+                  </span>
+                </div>
+              </div>
+            </>
           )}
 
           {/* Input Email */}
@@ -184,7 +332,7 @@ export default function TicketPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
+              disabled={purchaseLoading}
               placeholder="tu@email.com"
               required
               className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
@@ -195,10 +343,10 @@ export default function TicketPage() {
           <button
             type="button"
             onClick={handlePurchase}
-            disabled={loading || !email}
+            disabled={purchaseLoading || !email || !selectedEventId || !selectedTicketTypeId}
             className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-lg transition-all text-lg"
           >
-            {loading ? 'Redirigiendo a Mercado Pago...' : 'Comprar con Mercado Pago'}
+            {purchaseLoading ? 'Redirigiendo a Mercado Pago...' : 'Comprar con Mercado Pago'}
           </button>
         </div>
       </div>
