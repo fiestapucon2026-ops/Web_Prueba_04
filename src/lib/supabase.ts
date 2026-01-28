@@ -5,6 +5,26 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+export function getSupabaseEnvStatus(): {
+  ok: boolean;
+  missing: string[];
+  hasServiceRole: boolean;
+  hasAnonKey: boolean;
+} {
+  const missing: string[] = [];
+  if (!supabaseUrl) missing.push('SUPABASE_URL');
+  if (!supabaseServiceRoleKey && !supabaseAnonKey) {
+    // Al menos una key debe existir
+    missing.push('SUPABASE_SERVICE_ROLE_KEY|SUPABASE_ANON_KEY');
+  }
+  return {
+    ok: missing.length === 0,
+    missing,
+    hasServiceRole: Boolean(supabaseServiceRoleKey),
+    hasAnonKey: Boolean(supabaseAnonKey),
+  };
+}
+
 if (!supabaseUrl || (!supabaseAnonKey && !supabaseServiceRoleKey)) {
   if (typeof window === 'undefined') {
     console.warn(

@@ -1,4 +1,4 @@
-import { requireSupabaseClient } from '@/lib/supabase';
+import { getSupabaseEnvStatus, requireSupabaseClient } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
 // Endpoint para obtener tipos de tickets disponibles desde BD
@@ -95,6 +95,17 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error('Error en /api/tickets/types:', error);
+    const status = getSupabaseEnvStatus();
+    if (!status.ok) {
+      return NextResponse.json(
+        {
+          error: 'Supabase no está configurado en este deployment',
+          missing: status.missing,
+          hint: 'Configura variables en Vercel (Preview) y haz Redeploy.',
+        },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(
       { error: 'Error al procesar la solicitud' },
       { status: 500 }
