@@ -18,6 +18,8 @@ export async function POST(request: Request) {
     }
 
     const { event_id, ticket_type_id, quantity, payer_email } = validationResult.data;
+    // IMPORTANTE: schema actual soporta 1 ticket por orden
+    const normalizedQuantity = 1;
 
     // Conectar a Supabase
     const supabase = requireSupabaseClient();
@@ -60,9 +62,9 @@ export async function POST(request: Request) {
     const soldQuantity = ordersCount || 0;
     const availableStock = inventory.total_capacity - soldQuantity;
 
-    if (availableStock < quantity) {
+    if (availableStock < normalizedQuantity) {
       return NextResponse.json(
-        { error: `Stock insuficiente. Disponible: ${availableStock}, Solicitado: ${quantity}` },
+        { error: `Stock insuficiente. Disponible: ${availableStock}, Solicitado: ${normalizedQuantity}` },
         { status: 409 }
       );
     }
@@ -90,7 +92,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const totalAmount = unitPrice * quantity;
+    const totalAmount = unitPrice * normalizedQuantity;
 
     // 4. Generar UUID para trazabilidad
     const externalReference = randomUUID();
@@ -137,7 +139,7 @@ export async function POST(request: Request) {
           {
             id: ticket_type_id,
             title: `${ticketTypeName} - ${eventName}`,
-            quantity: quantity,
+            quantity: normalizedQuantity,
             unit_price: unitPrice,
             currency_id: 'CLP',
           },

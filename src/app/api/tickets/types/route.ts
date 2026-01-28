@@ -49,24 +49,40 @@ export async function GET(request: Request) {
       );
     }
 
-    // Calcular stock disponible para cada combinación
-    const inventoryWithStock = await Promise.all(
-      (inventory || []).map(async (inv) => {
-        const { count: ordersCount } = await supabase
-          .from('orders')
-          .select('*', { count: 'exact', head: true })
-          .eq('inventory_id', inv.id)
-          .in('status', ['pending', 'paid']);
+    // Calcular stock disponible sin N+1:
+    // Traer todas las órdenes relevantes en 1 query y agrupar por inventory_id
+    const inventoryIds = (inventory || []).map((i) => i.id);
+    const soldByInventoryId = new Map<string, number>();
 
-        const soldQuantity = ordersCount || 0;
-        const availableStock = inv.total_capacity - soldQuantity;
+    if (inventoryIds.length > 0) {
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('inventory_id, status')
+        .in('inventory_id', inventoryIds)
+        .in('status', ['pending', 'paid']);
 
-        return {
-          ...inv,
-          available_stock: Math.max(0, availableStock),
-        };
-      })
-    );
+      if (ordersError) {
+        console.error('Error al obtener órdenes para stock:', ordersError);
+        return NextResponse.json(
+          { error: 'Error al calcular stock disponible' },
+          { status: 500 }
+        );
+      }
+
+      for (const o of orders || []) {
+        const key = String(o.inventory_id);
+        soldByInventoryId.set(key, (soldByInventoryId.get(key) || 0) + 1);
+      }
+    }
+
+    const inventoryWithStock = (inventory || []).map((inv) => {
+      const soldQuantity = soldByInventoryId.get(inv.id) || 0;
+      const availableStock = inv.total_capacity - soldQuantity;
+      return {
+        ...inv,
+        available_stock: Math.max(0, availableStock),
+      };
+    });
 
     // Formatear respuesta
     const response = {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { EmailSchema, QuantitySchema } from '@/lib/schemas';
+import { EmailSchema } from '@/lib/schemas';
 
 // Interfaces para datos dinámicos desde API
 interface TicketType {
@@ -39,7 +39,6 @@ export default function TicketPage() {
   // Estado del formulario
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string>('');
-  const [quantity, setQuantity] = useState<number>(1);
   const [email, setEmail] = useState<string>('');
   const [purchaseLoading, setPurchaseLoading] = useState<boolean>(false);
 
@@ -109,20 +108,16 @@ export default function TicketPage() {
       return;
     }
 
-    const quantityValidation = QuantitySchema.safeParse(quantity);
-    if (!quantityValidation.success) {
-      alert('La cantidad debe ser un número entre 1 y 10');
-      return;
-    }
-
     if (!selectedEventId || !selectedTicketTypeId) {
       alert('Por favor, selecciona un evento y tipo de ticket');
       return;
     }
 
     const availableStock = getAvailableStock();
-    if (quantity > availableStock) {
-      alert(`Stock insuficiente. Disponible: ${availableStock}, Solicitado: ${quantity}`);
+    // IMPORTANTE: por ahora 1 ticket por orden (schema actual no tiene quantity en orders)
+    const quantity = 1;
+    if (availableStock < 1) {
+      alert('Stock insuficiente. No hay tickets disponibles para esta selección.');
       return;
     }
 
@@ -137,7 +132,7 @@ export default function TicketPage() {
         body: JSON.stringify({
           event_id: selectedEventId,
           ticket_type_id: selectedTicketTypeId,
-          quantity: quantity,
+          quantity: 1,
           payer_email: email,
         }),
       });
@@ -156,13 +151,6 @@ export default function TicketPage() {
       console.error('Error al crear preferencia:', err);
       alert('Error de conexión. Por favor, verifica tu internet e intenta nuevamente.');
       setPurchaseLoading(false);
-    }
-  };
-
-  const handleQuantityChange = (value: number) => {
-    const maxQuantity = Math.min(10, getAvailableStock());
-    if (value >= 1 && value <= maxQuantity) {
-      setQuantity(value);
     }
   };
 
@@ -189,7 +177,7 @@ export default function TicketPage() {
   const availableTicketTypes = getAvailableTicketTypes();
   const availableStock = getAvailableStock();
   const selectedTicketPrice = getSelectedTicketPrice();
-  const totalAmount = selectedTicketPrice * quantity;
+  const totalAmount = selectedTicketPrice * 1;
 
   return (
     <main className="min-h-screen bg-slate-900 text-white py-12 px-4">
@@ -270,44 +258,17 @@ export default function TicketPage() {
             </div>
           )}
 
-          {/* Cantidad */}
+          {/* Cantidad (por ahora 1 ticket por orden) */}
           {selectedTicketTypeId && (
             <>
-              <div className="mb-6">
-                <label htmlFor="quantity" className="block text-lg font-semibold mb-2">
-                  Cantidad
-                </label>
-                <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => handleQuantityChange(quantity - 1)}
-                    disabled={purchaseLoading || quantity <= 1}
-                    className="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-bold text-xl"
-                  >
-                    −
-                  </button>
-                  <input
-                    id="quantity"
-                    type="number"
-                    min="1"
-                    max={Math.min(10, availableStock)}
-                    value={quantity}
-                    onChange={(e) => handleQuantityChange(Number(e.target.value))}
-                    disabled={purchaseLoading}
-                    className="w-20 text-center bg-slate-700 border border-slate-600 rounded-lg py-2 text-lg font-semibold disabled:opacity-50"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleQuantityChange(quantity + 1)}
-                    disabled={purchaseLoading || quantity >= Math.min(10, availableStock)}
-                    className="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center font-bold text-xl"
-                  >
-                    +
-                  </button>
-                  <span className="text-slate-400">
-                    (Máximo {Math.min(10, availableStock)} tickets disponibles)
-                  </span>
+              <div className="mb-6 p-4 bg-slate-700/30 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-lg">Cantidad:</span>
+                  <span className="text-lg font-semibold">1</span>
                 </div>
+                <p className="text-slate-400 text-sm mt-2">
+                  Por ahora, el sistema permite 1 ticket por compra (schema actual).
+                </p>
               </div>
 
               {/* Total */}
