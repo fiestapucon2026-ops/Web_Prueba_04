@@ -124,10 +124,17 @@ export default function TicketPage() {
     setPurchaseLoading(true);
 
     try {
+      // Clave estable por formulario + ventana 5s: doble clic devuelve la misma preferencia (base64url seguro para headers)
+      const windowSec = Math.floor(Date.now() / 5000);
+      const raw = `${email}|${selectedEventId}|${selectedTicketTypeId}|${windowSec}`;
+      const idempotencyKey = typeof btoa !== 'undefined'
+        ? btoa(unescape(encodeURIComponent(raw))).replace(/\+/g, '-').replace(/\//g, '_')
+        : raw;
       const response = await fetch('/api/tickets/create-preference', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
         },
         body: JSON.stringify({
           event_id: selectedEventId,
@@ -298,6 +305,16 @@ export default function TicketPage() {
               required
               className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
             />
+            <p className="mt-1 text-sm text-slate-400">
+              Para pruebas con MP (modo prueba):{' '}
+              <button
+                type="button"
+                onClick={() => setEmail('TESTUSER5544200525823207849@testuser.com')}
+                className="text-amber-400 hover:underline"
+              >
+                Usar email de prueba MP
+              </button>
+            </p>
           </div>
 
           {/* Botón de Compra */}
