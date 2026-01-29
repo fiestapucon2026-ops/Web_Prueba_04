@@ -21,11 +21,10 @@ export async function GET(request: Request) {
       );
     }
 
-    // Obtener eventos activos (futuros)
+    // Obtener eventos (sin filtrar por fecha para que aparezcan en el dropdown; opcional: .gte('date', ...) para solo futuros)
     const { data: events, error: eventsError } = await supabase
       .from('events')
       .select('id, name, date, venue')
-      .gte('date', new Date().toISOString())
       .order('date', { ascending: true });
 
     if (eventsError) {
