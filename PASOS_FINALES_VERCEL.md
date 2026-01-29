@@ -56,6 +56,14 @@ Value: <tu-access-token-de-mp>
 Environments: ☑ Production ☑ Preview ☑ Development
 ```
 
+**Variable 3b (obligatoria para que el webhook procese pagos):**
+```
+Name: MP_WEBHOOK_SECRET
+Value: <secret-del-webhook-en-panel-mp>
+Environments: ☑ Production ☑ Preview ☑ Development
+```
+Sin esta variable el webhook responde 503. Se obtiene al configurar la URL del webhook en el panel de Mercado Pago.
+
 #### 2.3 Resend (Opcional - para primera prueba puede omitirse)
 
 **Variable 4:**
@@ -76,12 +84,13 @@ Value: https://www.festivalpucon.cl
 Environments: ☑ Production (solo)
 ```
 
-**Variable 6 (Preview):**
+**Variable 6 (Preview) — obligatoria para Preview:**
 ```
 Name: NEXT_PUBLIC_BASE_URL
 Value: <la-preview-url-que-copiaste-en-paso-1>
 Environments: ☑ Preview (solo)
 ```
+Sin esta variable, las `back_urls` y la `notification_url` del pago apuntan al fallback de producción y el webhook no recibe notificaciones en el deployment Preview.
 
 **Ejemplo:**
 ```

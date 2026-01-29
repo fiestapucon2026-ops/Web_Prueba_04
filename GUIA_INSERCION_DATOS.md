@@ -92,6 +92,15 @@ CREATE INDEX IF NOT EXISTS idx_orders_mp_payment_id ON public.orders(mp_payment_
 CREATE INDEX IF NOT EXISTS idx_orders_inventory_id ON public.orders(inventory_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
 CREATE INDEX IF NOT EXISTS idx_inventory_event_ticket ON public.inventory(event_id, ticket_type_id);
+
+-- Tabla para idempotencia en create-preference (evita doble cobro por doble clic)
+CREATE TABLE IF NOT EXISTS public.idempotency_keys (
+    key TEXT PRIMARY KEY,
+    init_point TEXT,
+    external_reference TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_idempotency_keys_created_at ON public.idempotency_keys(created_at);
 ```
 
 **Click en "Run" (o F5)**

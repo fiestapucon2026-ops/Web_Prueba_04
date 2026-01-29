@@ -51,7 +51,7 @@ function isTsWithinTolerance(tsRaw: string, toleranceSeconds = 300): boolean {
 function verifyMercadoPagoSignature(request: Request): { ok: boolean; reason?: string } {
   const secret = process.env.MP_WEBHOOK_SECRET;
   if (!secret) {
-    return { ok: true, reason: 'MP_WEBHOOK_SECRET no configurado (verificación deshabilitada)' };
+    return { ok: false, reason: 'MP_WEBHOOK_SECRET no configurado (obligatorio en producción)' };
   }
 
   const xSignature = request.headers.get('x-signature');
@@ -83,6 +83,14 @@ function verifyMercadoPagoSignature(request: Request): { ok: boolean; reason?: s
 
 export async function POST(request: Request) {
   try {
+    // En producción la firma es obligatoria; sin secret no procesar
+    if (!process.env.MP_WEBHOOK_SECRET) {
+      console.error('❌ Webhook Mercado Pago: MP_WEBHOOK_SECRET no configurado');
+      return NextResponse.json(
+        { error: 'Webhook no configurado' },
+        { status: 503 }
+      );
+    }
     const sig = verifyMercadoPagoSignature(request);
     if (!sig.ok) {
       console.error('❌ Webhook Mercado Pago: verificación de firma fallida:', sig.reason);
@@ -156,23 +164,26 @@ export async function POST(request: Request) {
         // Switch según estado del pago
         switch (payment.status) {
           case 'approved': {
-            // Verificar idempotencia nuevamente antes de procesar
             if (order.status === 'paid') {
               console.log('✅ Orden ya marcada como pagada:', order.id);
               return NextResponse.json({ status: 'OK' }, { status: 200 });
             }
 
-            // Actualizar orden a 'paid' y guardar mp_payment_id
-            const { error: updateError } = await supabase
+            // Update atómico: solo una request gana la transición pending → paid (evita doble PDF/email)
+            const { data: updatedRow, error: updateError } = await supabase
               .from('orders')
               .update({
                 status: 'paid',
                 mp_payment_id: String(paymentId),
               })
-              .eq('id', order.id);
+              .eq('id', order.id)
+              .eq('status', 'pending')
+              .select('id')
+              .single();
 
-            if (updateError) {
-              console.error('❌ Error al actualizar orden:', updateError);
+            if (updateError || !updatedRow) {
+              // Otro request ya actualizó o error; no enviar PDF
+              if (updateError) console.error('❌ Error al actualizar orden:', updateError);
               return NextResponse.json({ status: 'OK' }, { status: 200 });
             }
 
@@ -183,7 +194,7 @@ export async function POST(request: Request) {
               payment.payer?.email || 'N/A'
             );
 
-            // Obtener orden completa con detalles para PDF y email
+            // Obtener orden completa con detalles para PDF y email (solo quien ganó el update)
             const { data: orderWithDetails, error: detailsError } = await supabase
               .from('orders')
               .select(`

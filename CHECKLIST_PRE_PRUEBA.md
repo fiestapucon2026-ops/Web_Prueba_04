@@ -1,8 +1,24 @@
 # Checklist Pre-Prueba - Mercado Pago
 
-## ✅ Paso 1: Verificación de Datos en Supabase
+## ✅ Paso 1: Verificación de Datos y Esquema en Supabase
 
-### Ejecuta este SQL para verificar:
+### 1.1 Esquema requerido (tabla orders e idempotencia)
+
+Verificar que la tabla `orders` tenga la columna `mp_payment_id` y que exista la tabla `idempotency_keys` (ver `GUIA_INSERCION_DATOS.md`):
+
+```sql
+-- Debe devolver una columna: mp_payment_id
+SELECT column_name FROM information_schema.columns 
+WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'mp_payment_id';
+
+-- Debe existir la tabla idempotency_keys
+SELECT 1 FROM information_schema.tables 
+WHERE table_schema = 'public' AND table_name = 'idempotency_keys';
+```
+
+Si falta `mp_payment_id` o la tabla `idempotency_keys`, ejecutar el SQL del Paso 2 en `GUIA_INSERCION_DATOS.md` (incluye ambas).
+
+### 1.2 Datos de prueba
 
 ```sql
 -- Verificación rápida
@@ -74,16 +90,23 @@ Festival Pucón 2026 | VIP         | 25000  | 50        | 50
 
 ---
 
-### 2.4 URL Base
+### 2.4 URL Base (obligatoria para back_urls y webhook)
 
 - [ ] `NEXT_PUBLIC_BASE_URL` - URL del deployment
 
-**Para Preview de Vercel:**
-- Se genera automáticamente al hacer push
-- Formato: `https://feature-mercado-pago-payment-xxx.vercel.app`
+**Importante:** Sin esta variable, `back_urls` y `notification_url` usan el fallback de producción. En Preview **debe** configurarse con la Preview URL para que el webhook y las páginas success/failure/pending apunten al mismo deployment.
 
-**Para Local:**
-- `http://localhost:3000`
+**Para Preview de Vercel:**
+- Formato: `https://feature-mercado-pago-payment-xxx.vercel.app`
+- Copiar de Deployments → Preview del branch
+
+**Para Local:** `http://localhost:3000`
+
+### 2.5 Webhook (producción)
+
+- [ ] `MP_WEBHOOK_SECRET` - Secret para verificar firma del webhook
+
+**Obligatorio en producción.** Sin él, el webhook responde 503 y no procesa pagos. Obtenerlo en el panel de Mercado Pago al configurar la URL del webhook.
 
 ---
 

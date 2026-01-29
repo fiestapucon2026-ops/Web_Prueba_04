@@ -4,8 +4,11 @@ import { CreatePreferenceSchema } from '@/lib/schemas';
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 
+const IDEMPOTENCY_TTL_HOURS = 24;
+
 export async function POST(request: Request) {
   try {
+    const idempotencyKey = request.headers.get('Idempotency-Key')?.trim() || null;
     const body = await request.json();
 
     // Validación con Zod
@@ -18,13 +21,60 @@ export async function POST(request: Request) {
     }
 
     const { event_id, ticket_type_id, quantity, payer_email } = validationResult.data;
-    // IMPORTANTE: schema actual soporta 1 ticket por orden
     const normalizedQuantity = 1;
 
-    // Conectar a Supabase
     const supabase = requireSupabaseClient();
 
-    // 1. Obtener inventory_id desde (event_id, ticket_type_id)
+    // Idempotencia: si hay clave y ya existe resultado válido, devolverlo
+    if (idempotencyKey) {
+      const { data: existing, error: selectErr } = await supabase
+        .from('idempotency_keys')
+        .select('init_point, created_at')
+        .eq('key', idempotencyKey)
+        .single();
+
+      if (!selectErr && existing) {
+        const createdAt = new Date(existing.created_at).getTime();
+        const ttlMs = IDEMPOTENCY_TTL_HOURS * 60 * 60 * 1000;
+        if (existing.init_point && Date.now() - createdAt < ttlMs) {
+          return NextResponse.json({ init_point: existing.init_point });
+        }
+        if (!existing.init_point) {
+          return NextResponse.json(
+            { error: 'Solicitud en curso. Reintentar más tarde.' },
+            { status: 409 }
+          );
+        }
+        if (Date.now() - createdAt >= ttlMs) {
+          return NextResponse.json(
+            { error: 'Clave de idempotencia expirada. Usar una nueva.' },
+            { status: 410 }
+          );
+        }
+      }
+
+      // Reservar clave: insertar fila (falla si ya existe por otro request concurrente)
+      const { error: insertKeyErr } = await supabase
+        .from('idempotency_keys')
+        .insert({ key: idempotencyKey });
+
+      if (insertKeyErr?.code === '23505') {
+        // Conflicto: otro request ya tiene la clave; esperar y devolver 409 o reintentar lógica no trivial
+        return NextResponse.json(
+          { error: 'Solicitud duplicada en curso. Reintentar más tarde.' },
+          { status: 409 }
+        );
+      }
+      if (insertKeyErr) {
+        console.error('Error al insertar idempotency_keys:', insertKeyErr);
+        return NextResponse.json(
+          { error: 'Error al procesar la solicitud de pago' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // 1. Obtener inventory y validar stock
     const { data: inventory, error: inventoryError } = await supabase
       .from('inventory')
       .select('id, total_capacity, ticket_types!inner(id, name, price), events!inner(id, name)')
@@ -33,17 +83,15 @@ export async function POST(request: Request) {
       .single();
 
     if (inventoryError || !inventory) {
-      console.error('Error al obtener inventory:', inventoryError);
+      if (idempotencyKey) {
+        await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+      }
       return NextResponse.json(
         { error: 'No se encontró el tipo de ticket para este evento' },
         { status: 404 }
       );
     }
 
-    // 2. Validar stock disponible
-    // Nota: Asumiendo que necesitamos agregar un campo 'quantity' a orders en el futuro
-    // Por ahora, contamos órdenes (asumiendo 1 ticket por orden temporalmente)
-    // TODO: Agregar campo 'quantity' a tabla orders para soportar múltiples tickets por orden
     const { count: ordersCount, error: ordersError } = await supabase
       .from('orders')
       .select('*', { count: 'exact', head: true })
@@ -51,54 +99,109 @@ export async function POST(request: Request) {
       .in('status', ['pending', 'paid']);
 
     if (ordersError) {
-      console.error('Error al consultar órdenes:', ordersError);
+      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
       return NextResponse.json(
         { error: 'Error al validar stock disponible' },
         { status: 500 }
       );
     }
 
-    // Calcular stock disponible (temporal: asumiendo 1 ticket por orden)
-    const soldQuantity = ordersCount || 0;
-    const availableStock = inventory.total_capacity - soldQuantity;
-
+    const availableStock = inventory.total_capacity - (ordersCount || 0);
     if (availableStock < normalizedQuantity) {
+      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
       return NextResponse.json(
         { error: `Stock insuficiente. Disponible: ${availableStock}, Solicitado: ${normalizedQuantity}` },
         { status: 409 }
       );
     }
 
-    // 3. Obtener precio desde ticket_types
-    // Supabase puede devolver un array o un objeto en JOINs, manejamos ambos casos
     const ticketTypesData = inventory.ticket_types;
-    const ticketType = Array.isArray(ticketTypesData) 
-      ? ticketTypesData[0] 
-      : ticketTypesData;
-    
+    const ticketType = Array.isArray(ticketTypesData) ? ticketTypesData[0] : ticketTypesData;
     if (!ticketType || typeof ticketType !== 'object' || !('price' in ticketType)) {
+      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
       return NextResponse.json(
         { error: 'Error al obtener información del tipo de ticket' },
         { status: 500 }
       );
     }
 
-    const unitPrice = Number(ticketType.price);
-
-    if (isNaN(unitPrice) || unitPrice <= 0) {
+    const unitPriceRaw = Number(ticketType.price);
+    if (isNaN(unitPriceRaw) || unitPriceRaw <= 0) {
+      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
       return NextResponse.json(
         { error: 'Precio inválido en base de datos' },
         { status: 500 }
       );
     }
+    // CLP: entero para evitar errores de redondeo en MP
+    const unitPrice = Math.round(unitPriceRaw);
 
     const totalAmount = unitPrice * normalizedQuantity;
-
-    // 4. Generar UUID para trazabilidad
     const externalReference = randomUUID();
 
-    // 5. Insertar orden en BD (status: 'pending')
-    const { data: newOrder, error: orderError } = await supabase
+    // 2. Crear preferencia en Mercado Pago primero (evita órdenes huérfanas)
+    const { preferenceClient } = requireMercadoPagoClient();
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.festivalpucon.cl';
+
+    const eventsData = inventory.events;
+    const event = Array.isArray(eventsData) ? eventsData[0] : eventsData;
+    const eventName =
+      event && typeof event === 'object' && 'name' in event
+        ? String(event.name)
+        : 'Festival Pucón 2026';
+    const ticketTypeName =
+      ticketType && typeof ticketType === 'object' && 'name' in ticketType
+        ? String(ticketType.name)
+        : 'Ticket';
+
+    let initPoint: string;
+    try {
+      const created = await preferenceClient.create({
+        body: {
+          items: [
+            {
+              id: ticket_type_id,
+              title: `${ticketTypeName} - ${eventName}`,
+              quantity: normalizedQuantity,
+              unit_price: unitPrice,
+              currency_id: 'CLP',
+            },
+          ],
+          payer: { email: payer_email },
+          back_urls: {
+            success: `${baseUrl}/success`,
+            failure: `${baseUrl}/failure`,
+            pending: `${baseUrl}/pending`,
+          },
+          notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+          auto_return: 'approved',
+          external_reference: externalReference,
+        },
+      });
+      // Sandbox: con token TEST- usar sandbox_init_point; si no, init_point
+      const accessToken = process.env.MP_ACCESS_TOKEN ?? '';
+      const sandboxUrl =
+        typeof (created as { sandbox_init_point?: string }).sandbox_init_point === 'string'
+          ? (created as { sandbox_init_point: string }).sandbox_init_point.trim()
+          : '';
+      if (accessToken.startsWith('TEST-') && sandboxUrl.length > 0) {
+        initPoint = sandboxUrl;
+      } else if (typeof created.init_point === 'string' && created.init_point.trim().length > 0) {
+        initPoint = created.init_point.trim();
+      } else {
+        throw new Error('Mercado Pago no devolvió init_point ni sandbox_init_point válido');
+      }
+    } catch (mpError) {
+      console.error('Error al crear preferencia en Mercado Pago:', mpError);
+      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+      return NextResponse.json(
+        { error: 'Error al crear la sesión de pago. Reintentar más tarde.' },
+        { status: 502 }
+      );
+    }
+
+    // 3. Insertar orden en BD solo después de tener init_point
+    const { error: orderError } = await supabase
       .from('orders')
       .insert({
         external_reference: externalReference,
@@ -106,60 +209,29 @@ export async function POST(request: Request) {
         user_email: payer_email,
         amount: totalAmount,
         status: 'pending',
-      })
-      .select()
-      .single();
+      });
 
-    if (orderError || !newOrder) {
+    if (orderError) {
       console.error('Error al crear orden:', orderError);
+      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
       return NextResponse.json(
         { error: 'Error al crear la orden en base de datos' },
         { status: 500 }
       );
     }
 
-    // 6. Crear preferencia en Mercado Pago
-    const { preferenceClient } = requireMercadoPagoClient();
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.festivalpucon.cl';
-    
-    // Obtener nombre del evento (manejar array u objeto)
-    const eventsData = inventory.events;
-    const event = Array.isArray(eventsData) ? eventsData[0] : eventsData;
-    const eventName = (event && typeof event === 'object' && 'name' in event) 
-      ? String(event.name) 
-      : 'Festival Pucón 2026';
-    
-    const ticketTypeName = (ticketType && typeof ticketType === 'object' && 'name' in ticketType)
-      ? String(ticketType.name)
-      : 'Ticket';
+    if (idempotencyKey) {
+      await supabase
+        .from('idempotency_keys')
+        .update({
+          init_point: initPoint,
+          external_reference: externalReference,
+          created_at: new Date().toISOString(),
+        })
+        .eq('key', idempotencyKey);
+    }
 
-    const preference = await preferenceClient.create({
-      body: {
-        items: [
-          {
-            id: ticket_type_id,
-            title: `${ticketTypeName} - ${eventName}`,
-            quantity: normalizedQuantity,
-            unit_price: unitPrice,
-            currency_id: 'CLP',
-          },
-        ],
-        payer: {
-          email: payer_email,
-        },
-        back_urls: {
-          success: `${baseUrl}/success`,
-          failure: `${baseUrl}/failure`,
-          pending: `${baseUrl}/pending`,
-        },
-        notification_url: `${baseUrl}/api/webhooks/mercadopago`,
-        auto_return: 'approved',
-        external_reference: externalReference,
-      },
-    });
-
-    return NextResponse.json({ init_point: preference.init_point });
-
+    return NextResponse.json({ init_point: initPoint });
   } catch (error) {
     console.error('Error al crear preferencia de pago:', error);
     return NextResponse.json(
