@@ -1,18 +1,7 @@
 'use client';
 
-import { useRef, useCallback } from 'react';
-import QRCode from 'react-qr-code';
-import { toPng } from 'html-to-image';
+import { useCallback, useState } from 'react';
 import type { TicketCardData } from '@/types/ticket';
-
-function downloadDataUrlAsFile(dataUrl: string, filename: string): void {
-  const a = document.createElement('a');
-  a.href = dataUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
 
 const CATEGORY_STYLES: Record<string, { bg: string; border: string; text: string }> = {
   VIP: { bg: 'bg-amber-100', border: 'border-amber-500', text: 'text-amber-900' },
@@ -33,43 +22,38 @@ interface TicketCardProps {
 }
 
 export function TicketCard({ ticket }: TicketCardProps) {
-  const cardRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
   const style = getCategoryStyle(ticket.category);
   const isFamiliar = /familiar/i.test(ticket.category.trim());
 
-  const handleDownload = useCallback(() => {
-    const node = cardRef.current;
-    if (!node) return;
-    toPng(node, {
-      backgroundColor: '#ffffff',
-      pixelRatio: 2,
-      cacheBust: true,
-    })
-      .then((dataUrl: string) => {
-        downloadDataUrlAsFile(dataUrl, `entrada-${ticket.uuid.slice(0, 8)}.png`);
-      })
-      .catch((err: unknown) => {
-        console.error('Error capturing ticket image:', err);
-      });
-  }, [ticket.uuid]);
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(ticket.qr_token).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      },
+      () => {}
+    );
+  }, [ticket.qr_token]);
 
   return (
     <div className="flex flex-col gap-4">
       <div
-        ref={cardRef}
         className={`rounded-xl border-2 ${style.bg} ${style.border} ${style.text} p-6 shadow-lg`}
       >
-        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-          <div className="flex-shrink-0 rounded-lg bg-white p-3">
-            <QRCode
-              value={ticket.qr_token}
-              size={160}
-              bgColor="#FFFFFF"
-              fgColor="#000000"
-              level="M"
-            />
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lg bg-white p-3 text-center">
+            <p className="text-xs font-medium opacity-80">Código de entrada (QR en tu PDF)</p>
+            <p className="mt-1 font-mono text-sm break-all select-all">{ticket.qr_token}</p>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="mt-2 rounded bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-600"
+            >
+              {copied ? 'Copiado' : 'Copiar código'}
+            </button>
           </div>
-          <div className="flex-1 text-center sm:text-left">
+          <div className="text-center sm:text-left">
             <p className="text-sm font-medium opacity-80">ID entrada</p>
             <p className="font-mono text-sm break-all">{ticket.uuid}</p>
             <p className="mt-2 text-sm font-medium opacity-80">Categoría</p>
@@ -88,13 +72,9 @@ export function TicketCard({ ticket }: TicketCardProps) {
           </div>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={handleDownload}
-        className="w-full rounded-lg bg-slate-800 px-4 py-3 font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
-      >
-        Guardar Entrada
-      </button>
+      <p className="text-center text-sm text-slate-600">
+        Presenta este código o el PDF enviado a tu email al ingresar.
+      </p>
     </div>
   );
 }

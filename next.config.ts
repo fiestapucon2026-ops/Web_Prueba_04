@@ -10,9 +10,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
-  // Incluir paquetes que fallan en Vercel (module-not-found) en build
-  // qrcode está en serverExternalPackages; no puede estar también en transpilePackages (Next 16/Turbopack)
-  transpilePackages: ['react-qr-code', 'html-to-image', 'downloadjs'],
+  // qrcode en serverExternalPackages para PDF (server). TicketCard ya no usa react-qr-code/html-to-image.
 };
 
 export default nextConfig;
