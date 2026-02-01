@@ -1,8 +1,5 @@
 import { requireMercadoPagoClient } from '@/lib/mercadopago';
 import { requireSupabaseClient } from '@/lib/supabase';
-import { generateTicketsPDF, type TicketItemForPDF } from '@/lib/pdf';
-import { sendPurchaseEmail, type PurchaseItemSummary } from '@/lib/email';
-import { createAccessToken } from '@/lib/security/access-token';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import crypto from 'crypto';
@@ -217,155 +214,27 @@ export async function POST(request: Request) {
               if (ticketsErr) console.error('❌ Error al crear tickets para orden:', orderId, ticketsErr);
             }
 
-            // Un email por compra: agrupar por external_reference, enlace "Mis entradas" + PDF único con QR
+            // Encolar generación de PDF + email (worker procesa job_queue)
             const orderIds = orders.map((o) => o.id);
-            const { data: ordersWithDetails, error: detailsError } = await supabase
-              .from('orders')
-              .select(`
-                id,
-                external_reference,
-                inventory_id,
-                user_email,
-                amount,
-                status,
-                created_at,
-                mp_payment_id,
-                quantity,
-                inventory:inventory_id (
-                  id,
-                  event_id,
-                  ticket_type_id,
-                  total_capacity,
-                  event:event_id ( id, name, date, venue ),
-                  ticket_type:ticket_type_id ( id, name, price )
-                )
-              `)
-              .eq('external_reference', payment.external_reference)
-              .eq('status', 'paid');
-
-            if (detailsError || !ordersWithDetails?.length) {
-              console.error('❌ Error al obtener detalles de órdenes:', detailsError);
-              break;
-            }
-
-            const { data: allTickets, error: ticketsFetchError } = await supabase
-              .from('tickets')
-              .select('id, order_id')
-              .in('order_id', orderIds)
-              .order('created_at', { ascending: true });
-
-            if (ticketsFetchError || !allTickets?.length) {
-              console.error('❌ Error al obtener tickets para email:', ticketsFetchError);
-              break;
-            }
-
-            const orderMap = new Map<
-              string,
-              {
-                id: string;
-                external_reference: string;
-                inventory_id: string;
-                user_email: string;
-                amount: number;
-                status: 'pending' | 'paid' | 'rejected';
-                mp_payment_id: string | null;
-                created_at: Date;
-                inventory: {
-                  id: string;
-                  event_id: string;
-                  ticket_type_id: string;
-                  total_capacity: number;
-                  event: { id: string; name: string; date: Date; venue: string };
-                  ticket_type: { id: string; name: string; price: number };
-                };
-              }
-            >();
-
-            for (const ord of ordersWithDetails) {
-              const o = ord as unknown as {
-                id: string;
-                external_reference: string;
-                inventory_id: string;
-                user_email: string;
-                amount: number;
-                status: string;
-                created_at: string;
-                mp_payment_id: string | null;
-                inventory: {
-                  id: string;
-                  event_id: string;
-                  ticket_type_id: string;
-                  total_capacity: number;
-                  event: { id: string; name: string; date: string; venue: string };
-                  ticket_type: { id: string; name: string; price: number };
-                };
-              };
-              orderMap.set(o.id, {
-                id: o.id,
-                external_reference: o.external_reference,
-                inventory_id: o.inventory_id,
-                user_email: o.user_email,
-                amount: o.amount,
-                status: o.status as 'pending' | 'paid' | 'rejected',
-                mp_payment_id: o.mp_payment_id,
-                created_at: new Date(o.created_at),
-                inventory: {
-                  id: o.inventory.id,
-                  event_id: o.inventory.event_id,
-                  ticket_type_id: o.inventory.ticket_type_id,
-                  total_capacity: o.inventory.total_capacity,
-                  event: {
-                    id: o.inventory.event.id,
-                    name: o.inventory.event.name,
-                    date: new Date(o.inventory.event.date),
-                    venue: o.inventory.event.venue,
-                  },
-                  ticket_type: {
-                    id: o.inventory.ticket_type.id,
-                    name: o.inventory.ticket_type.name,
-                    price: Number(o.inventory.ticket_type.price),
-                  },
-                },
-              });
-            }
-
-            const items: TicketItemForPDF[] = [];
-            for (const t of allTickets) {
-              const ticket = t as { id: string; order_id: string };
-              const orderWithDetails = orderMap.get(ticket.order_id);
-              if (orderWithDetails) items.push({ order: orderWithDetails, ticketId: ticket.id });
-            }
-
-            const itemsSummary: PurchaseItemSummary[] = ordersWithDetails.map((ord) => {
-              const o = ord as unknown as {
-                id: string;
-                quantity?: number;
-                inventory: { event: { name: string }; ticket_type: { name: string } };
-              };
-              const orig = orders.find((x) => x.id === o.id);
-              const qty = Math.max(1, Number(orig?.quantity) || 1);
-              return {
-                eventName: o.inventory.event.name,
-                ticketTypeName: o.inventory.ticket_type.name,
-                quantity: qty,
-              };
-            });
-
             const toEmail = payment.payer?.email ?? orders[0].user_email ?? '';
             if (!toEmail) {
               console.error('❌ Sin email para enviar (payer ni orders[0].user_email)');
               break;
             }
-
-            try {
-              const accessToken = createAccessToken(payment.external_reference);
-              const pdfBuffer = await generateTicketsPDF(items);
-              await sendPurchaseEmail(toEmail, accessToken, itemsSummary, pdfBuffer);
-              console.log('✅ Email único enviado para compra:', payment.external_reference);
-            } catch (emailError) {
-              console.error('❌ Error al enviar email de compra:', payment.external_reference, emailError);
+            const { error: jobErr } = await supabase.from('job_queue').insert({
+              type: 'generate_ticket_pdf',
+              payload: {
+                external_reference: payment.external_reference,
+                order_ids: orderIds,
+                email: toEmail,
+              },
+              status: 'pending',
+            });
+            if (jobErr) {
+              console.error('❌ Error al encolar job PDF+email:', jobErr);
+            } else {
+              console.log('✅ Job encolado para PDF+email:', payment.external_reference);
             }
-
             break;
           }
 

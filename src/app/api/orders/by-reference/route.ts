@@ -106,7 +106,7 @@ export async function GET(request: Request) {
 
       const { data: ticketRows, error: ticketsError } = await supabase
         .from('tickets')
-        .select('id')
+        .select('id, qr_uuid')
         .eq('order_id', row.id)
         .order('created_at', { ascending: true });
 
@@ -124,9 +124,12 @@ export async function GET(request: Request) {
 
       const tickets: ByReferenceResponse['orders'][0]['tickets'] = [];
       for (const t of ticketRows ?? []) {
-        const ticket = t as { id: string };
+        const ticket = t as { id: string; qr_uuid?: string | null };
         try {
-          const qrToken = signTicket(ticket.id, ticketType.name);
+          const qrToken =
+            ticket.qr_uuid != null && ticket.qr_uuid !== ''
+              ? String(ticket.qr_uuid)
+              : signTicket(ticket.id, ticketType.name);
           tickets.push({
             uuid: ticket.id,
             category: ticketType.name,

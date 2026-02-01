@@ -100,13 +100,17 @@ export async function GET(request: Request) {
 
       const { data: ticketRows } = await supabase
         .from('tickets')
-        .select('id')
+        .select('id, qr_uuid')
         .eq('order_id', ord.id)
         .order('created_at', { ascending: true });
 
       for (const t of ticketRows ?? []) {
-        const ticket = t as { id: string };
-        items.push({ order: orderWithDetails, ticketId: ticket.id });
+        const ticket = t as { id: string; qr_uuid?: string | null };
+        items.push({
+          order: orderWithDetails,
+          ticketId: ticket.id,
+          qr_uuid: ticket.qr_uuid ?? undefined,
+        });
       }
     }
 

@@ -1,0 +1,115 @@
+'use client';
+
+import { Suspense } from 'react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+const DEFAULT_REDIRECT_URL = 'https://www.festivalpucon.cl';
+const DEFAULT_REDIRECT_SECONDS = 10;
+
+function getRedirectUrl(): string {
+  const url = process.env.NEXT_PUBLIC_SUCCESS_REDIRECT_URL?.trim();
+  return url || DEFAULT_REDIRECT_URL;
+}
+
+function getRedirectSeconds(): number {
+  const s = process.env.NEXT_PUBLIC_SUCCESS_REDIRECT_SECONDS;
+  if (s != null && s !== '') {
+    const n = parseInt(s, 10);
+    if (!isNaN(n) && n >= 1 && n <= 60) return n;
+  }
+  return DEFAULT_REDIRECT_SECONDS;
+}
+
+function SuccessContent() {
+  const searchParams = useSearchParams();
+  const externalRef = searchParams.get('external_reference');
+  const status = searchParams.get('status');
+
+  const [redirectUrl] = useState(getRedirectUrl);
+  const [redirectSeconds] = useState(getRedirectSeconds);
+  const [secondsLeft, setSecondsLeft] = useState(redirectSeconds);
+  const [misEntradasUrl, setMisEntradasUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (externalRef && status === 'approved') {
+      fetch(
+        `/api/orders/access-token?external_reference=${encodeURIComponent(externalRef)}`
+      )
+        .then((res) => res.json())
+        .then((data: { token?: string }) => {
+          if (data?.token) {
+            setMisEntradasUrl(`/mis-entradas?token=${encodeURIComponent(data.token)}`);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [externalRef, status]);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) {
+          clearInterval(t);
+          window.location.href = misEntradasUrl ?? redirectUrl;
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [redirectUrl, misEntradasUrl]);
+
+  const isAbsolute = redirectUrl.startsWith('http');
+  const linkLabel = isAbsolute ? redirectUrl.replace(/^https?:\/\//, '') : redirectUrl;
+  const primaryHref = misEntradasUrl ?? redirectUrl;
+  const primaryLabel = misEntradasUrl ? 'Ver mis entradas' : isAbsolute ? `Ir a ${linkLabel}` : 'Ver mis entradas';
+
+  return (
+    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
+      <div className="max-w-lg w-full bg-black border border-[#cc0000] rounded-lg p-8 shadow-[0_4px_12px_#ff9999] text-center">
+        <div className="mb-6 text-5xl" aria-hidden>✓</div>
+        <h1 className="text-2xl font-bold text-white mb-2">Pago exitoso</h1>
+        <p className="text-gray-300 mb-6">
+          Tu compra fue procesada correctamente. Revisa tu correo; te enviamos el enlace para ver y descargar tus entradas.
+        </p>
+        <p className="text-gray-400 text-sm mb-6">
+          Serás redirigido en {secondsLeft} segundos.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Link
+            href={primaryHref}
+            className="inline-block bg-[#cc0000] hover:bg-[#b30000] text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+          >
+            {primaryLabel}
+          </Link>
+          <Link
+            href="/entradas"
+            className="inline-block border border-[#737373] hover:border-[#a6a6a6] text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+          >
+            Comprar más entradas
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
+          <div className="max-w-lg w-full bg-black border border-[#cc0000] rounded-lg p-8 shadow-[0_4px_12px_#ff9999] text-center">
+            <div className="mb-6 text-5xl" aria-hidden>✓</div>
+            <h1 className="text-2xl font-bold text-white mb-2">Pago exitoso</h1>
+            <p className="text-gray-300 mb-6">Cargando...</p>
+          </div>
+        </main>
+      }
+    >
+      <SuccessContent />
+    </Suspense>
+  );
+}

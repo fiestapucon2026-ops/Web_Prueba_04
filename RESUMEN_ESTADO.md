@@ -1,5 +1,11 @@
 # Resumen de Estado - Integración Mercado Pago
 
+## 📌 Información guardada (referencia)
+
+**Los proyectos en GitHub, Vercel y Supabase ya están creados y funcionando.** El módulo de Mercado Pago funciona al 100%. Las variables de entorno en Vercel están configuradas (entre otras: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `NEXT_PUBLIC_BASE_URL`). Para desarrollo local, copiar esas mismas variables a `.env.local` (obtener los valores desde el dashboard de Supabase → Project Settings → API, y desde el panel de Mercado Pago).
+
+---
+
 ## ✅ Completado
 
 ### Código
@@ -32,21 +38,21 @@
 - ✅ `MIGRACION_API.md` - Documentación de migración
 - ✅ `PASOS_FINALES_VERCEL.md` - Pasos finales manuales
 
+### Módulo Admin / Seguridad — TERMINADO Y 100% OPERATIVO
+- ✅ `/admin/stock`: gestión de stock, precios, % ocupación (incluye precio PROMO)
+- ✅ Auth: sesión HttpOnly (login/logout), cookie 24 h; compatibilidad con header `x-admin-key`
+- ✅ Seguridad: timing-safe, sanitización errores, UUID en PATCH, rate limit 60/min, CSP, robots.txt
+- ✅ PATCH atómico vía RPC `admin_update_daily_inventory`
+- ⛔ **Cualquier cambio en este módulo requiere DOBLE RATIFICACIÓN** (ver `PROMPT_NUEVO_CHAT_MODULO_ADMIN_SEGURIDAD.md`)
+
 ---
 
 ## ⏳ Pendiente (Requiere Acción Manual)
 
 ### Vercel
-- [ ] Esperar deployment automático del branch
-- [ ] Obtener Preview URL
-- [ ] Configurar variables de entorno:
-  - [ ] `SUPABASE_URL`
-  - [ ] `SUPABASE_ANON_KEY`
-  - [ ] `MP_ACCESS_TOKEN`
-  - [ ] `RESEND_API_KEY` (opcional)
-  - [ ] `NEXT_PUBLIC_BASE_URL` (Preview)
-- [ ] Redeploy después de agregar variables
-- [ ] Verificar que `/api/tickets/types` funciona
+- [x] Proyecto Vercel creado y enlazado a GitHub
+- [x] Variables de entorno configuradas (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `NEXT_PUBLIC_BASE_URL`, etc.)
+- [ ] Verificar que `/api/tickets/types` y flujo MP funcionan en Preview/Producción
 
 ### Mercado Pago
 - [ ] Configurar webhook URL en panel de MP
@@ -76,11 +82,18 @@
 
 ---
 
-## 🎯 Próximo Paso Inmediato
+## 🎯 Próximo paso y orden lógico
 
-**Seguir:** `PASOS_FINALES_VERCEL.md`
+**Orden recomendado:** 1 → 2 → 3 o 4
 
-Este archivo contiene los pasos exactos que debes hacer en Vercel y Mercado Pago para completar la configuración.
+| # | Opción | Descripción |
+|---|--------|-------------|
+| **1** | **Documentar** | Actualizar prompt y RESUMEN_ESTADO con lo implementado; dejar explícito "módulo terminado" y "doble ratificación". *(Hecho en esta sesión.)* |
+| **2** | **Deploy** | Revisar checklist Vercel: `ADMIN_SECRET` en producción (valor fuerte); migración RPC aplicada en Supabase; CSP/headers si aplica. |
+| **3** | **Otro módulo** | Seguir con el siguiente módulo (ej. tickets/QR/email según `PROMPT_MODULO_TICKETS_QR_EMAIL.md` o el que definas). |
+| **4** | **Nada por ahora** | Cerrar este módulo y retomar cuando haya un objetivo nuevo. |
+
+**Referencia MP/Vercel:** `PASOS_FINALES_VERCEL.md` — pasos en Vercel y Mercado Pago.
 
 ---
 
@@ -103,4 +116,4 @@ Este archivo contiene los pasos exactos que debes hacer en Vercel y Mercado Pago
 
 ---
 
-**Última actualización:** Después de push exitoso a GitHub
+**Última actualización:** Módulo Admin/Seguridad terminado y documentado (2026-01-31). Doble ratificación requerida para cambios en Admin.

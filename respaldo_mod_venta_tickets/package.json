@@ -1,0 +1,39 @@
+{
+  "name": "web_oficial_festival",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "verify:build": "npm run build",
+    "verify:api": "node scripts/verify-api.js",
+    "check:env": "node scripts/check-env.js",
+    "db:seed": "npx tsx supabase/seed.ts"
+  },
+  "dependencies": {
+    "@react-pdf/renderer": "^4.3.2",
+    "@supabase/supabase-js": "^2.93.2",
+    "downloadjs": "^1.4.7",
+    "html-to-image": "^1.11.13",
+    "mercadopago": "^2.12.0",
+    "next": "16.1.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-qr-code": "^2.0.18",
+    "resend": "^6.9.1",
+    "swr": "^2.3.8",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.4",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

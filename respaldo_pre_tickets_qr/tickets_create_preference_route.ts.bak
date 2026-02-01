@@ -1,0 +1,257 @@
+import { requireMercadoPagoClient } from '@/lib/mercadopago';
+import { requireSupabaseClient } from '@/lib/supabase';
+import { CreatePreferenceSchema } from '@/lib/schemas';
+import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
+
+const IDEMPOTENCY_TTL_HOURS = 24;
+
+export async function POST(request: Request) {
+  try {
+    const idempotencyKey = request.headers.get('Idempotency-Key')?.trim() || null;
+    const body = await request.json();
+
+    // Validación con Zod
+    const validationResult = CreatePreferenceSchema.safeParse(body);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Datos inválidos', details: validationResult.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const { event_id, ticket_type_id, quantity, payer_email } = validationResult.data;
+    const normalizedQuantity = Math.max(1, Math.min(8, quantity));
+
+    const supabase = requireSupabaseClient();
+
+    // Idempotencia: si hay clave y ya existe resultado válido, devolverlo
+    if (idempotencyKey) {
+      const { data: existing, error: selectErr } = await supabase
+        .from('idempotency_keys')
+        .select('init_point, created_at')
+        .eq('key', idempotencyKey)
+        .single();
+
+      if (!selectErr && existing) {
+        const createdAt = new Date(existing.created_at).getTime();
+        const ttlMs = IDEMPOTENCY_TTL_HOURS * 60 * 60 * 1000;
+        if (existing.init_point && Date.now() - createdAt < ttlMs) {
+          return NextResponse.json({ init_point: existing.init_point });
+        }
+        if (!existing.init_point) {
+          return NextResponse.json(
+            { error: 'Solicitud en curso. Reintentar más tarde.' },
+            { status: 409 }
+          );
+        }
+        if (Date.now() - createdAt >= ttlMs) {
+          return NextResponse.json(
+            { error: 'Clave de idempotencia expirada. Usar una nueva.' },
+            { status: 410 }
+          );
+        }
+      }
+
+      // Reservar clave: insertar fila (falla si ya existe por otro request concurrente)
+      const { error: insertKeyErr } = await supabase
+        .from('idempotency_keys')
+        .insert({ key: idempotencyKey });
+
+      if (insertKeyErr?.code === '23505') {
+        // Conflicto: otro request ya tiene la clave; esperar y devolver 409 o reintentar lógica no trivial
+        return NextResponse.json(
+          { error: 'Solicitud duplicada en curso. Reintentar más tarde.' },
+          { status: 409 }
+        );
+      }
+      if (insertKeyErr) {
+        console.error('Error al insertar idempotency_keys:', insertKeyErr);
+        return NextResponse.json(
+          { error: 'Error al procesar la solicitud de pago' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // 1. Obtener inventory y validar stock
+    const { data: inventory, error: inventoryError } = await supabase
+      .from('inventory')
+      .select('id, total_capacity, ticket_types!inner(id, name, price), events!inner(id, name)')
+      .eq('event_id', event_id)
+      .eq('ticket_type_id', ticket_type_id)
+      .single();
+
+    if (inventoryError || !inventory) {
+      if (idempotencyKey) {
+        await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+      }
+      return NextResponse.json(
+        { error: 'No se encontró el tipo de ticket para este evento' },
+        { status: 404 }
+      );
+    }
+
+    const { count: ordersCount, error: ordersError } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('inventory_id', inventory.id)
+      .in('status', ['pending', 'paid']);
+
+    if (ordersError) {
+      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+      return NextResponse.json(
+        { error: 'Error al validar stock disponible' },
+        { status: 500 }
+      );
+    }
+
+    const availableStock = inventory.total_capacity - (ordersCount || 0);
+    if (availableStock < normalizedQuantity) {
+      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+      return NextResponse.json(
+        { error: `Stock insuficiente. Disponible: ${availableStock}, Solicitado: ${normalizedQuantity}` },
+        { status: 409 }
+      );
+    }
+
+    const ticketTypesData = inventory.ticket_types;
+    const ticketType = Array.isArray(ticketTypesData) ? ticketTypesData[0] : ticketTypesData;
+    if (!ticketType || typeof ticketType !== 'object' || !('price' in ticketType)) {
+      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+      return NextResponse.json(
+        { error: 'Error al obtener información del tipo de ticket' },
+        { status: 500 }
+      );
+    }
+
+    const unitPriceRaw = Number(ticketType.price);
+    if (isNaN(unitPriceRaw) || unitPriceRaw <= 0) {
+      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+      return NextResponse.json(
+        { error: 'Precio inválido en base de datos' },
+        { status: 500 }
+      );
+    }
+    // CLP: entero para evitar errores de redondeo en MP
+    const unitPrice = Math.round(unitPriceRaw);
+
+    const totalAmount = unitPrice * normalizedQuantity;
+    const externalReference = randomUUID();
+
+    // 2. Crear preferencia en Mercado Pago primero (evita órdenes huérfanas)
+    const { preferenceClient } = requireMercadoPagoClient();
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.festivalpucon.cl';
+
+    const eventsData = inventory.events;
+    const event = Array.isArray(eventsData) ? eventsData[0] : eventsData;
+    const eventName =
+      event && typeof event === 'object' && 'name' in event
+        ? String(event.name)
+        : 'Festival Pucón 2026';
+    const ticketTypeName =
+      ticketType && typeof ticketType === 'object' && 'name' in ticketType
+        ? String(ticketType.name)
+        : 'Ticket';
+
+    let initPoint: string;
+    try {
+      const created = await preferenceClient.create({
+        body: {
+          items: [
+            {
+              id: ticket_type_id,
+              title: `${ticketTypeName} - ${eventName} (x${normalizedQuantity})`,
+              quantity: normalizedQuantity,
+              unit_price: unitPrice,
+              currency_id: 'CLP',
+            },
+          ],
+          payer: { email: payer_email },
+          back_urls: {
+            success: `${baseUrl}/success`,
+            failure: `${baseUrl}/failure`,
+            pending: `${baseUrl}/pending`,
+          },
+          notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+          auto_return: 'approved',
+          external_reference: externalReference,
+        },
+      });
+      // Sandbox: con token TEST- usar sandbox_init_point; si no, init_point
+      const accessToken = process.env.MP_ACCESS_TOKEN ?? '';
+      const sandboxUrl =
+        typeof (created as { sandbox_init_point?: string }).sandbox_init_point === 'string'
+          ? (created as { sandbox_init_point: string }).sandbox_init_point.trim()
+          : '';
+      if (accessToken.startsWith('TEST-') && sandboxUrl.length > 0) {
+        initPoint = sandboxUrl;
+      } else if (typeof created.init_point === 'string' && created.init_point.trim().length > 0) {
+        initPoint = created.init_point.trim();
+      } else {
+        throw new Error('Mercado Pago no devolvió init_point ni sandbox_init_point válido');
+      }
+    } catch (mpError) {
+      console.error('Error al crear preferencia en Mercado Pago:', mpError);
+      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+      return NextResponse.json(
+        { error: 'Error al crear la sesión de pago. Reintentar más tarde.' },
+        { status: 502 }
+      );
+    }
+
+    // 3. Insertar orden en BD solo después de tener init_point
+    const { error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        external_reference: externalReference,
+        inventory_id: inventory.id,
+        user_email: payer_email,
+        amount: totalAmount,
+        quantity: normalizedQuantity,
+        status: 'pending',
+      });
+
+    if (orderError) {
+      console.error('Error al crear orden:', orderError);
+      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+      return NextResponse.json(
+        { error: 'Error al crear la orden en base de datos' },
+        { status: 500 }
+      );
+    }
+
+    if (idempotencyKey) {
+      await supabase
+        .from('idempotency_keys')
+        .update({
+          init_point: initPoint,
+          external_reference: externalReference,
+          created_at: new Date().toISOString(),
+        })
+        .eq('key', idempotencyKey);
+    }
+
+    return NextResponse.json({ init_point: initPoint });
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('Error al crear preferencia de pago:', err.message, err.stack);
+    // Pistas para errores de configuración en Vercel (Preview)
+    if (err.message.includes('MP_ACCESS_TOKEN')) {
+      return NextResponse.json(
+        { error: 'MP_ACCESS_TOKEN no configurado. En Vercel → Settings → Environment Variables, añade MP_ACCESS_TOKEN (TEST-...) y aplica a Preview. Luego Redeploy.' },
+        { status: 503 }
+      );
+    }
+    if (err.message.includes('Supabase no está configurado')) {
+      return NextResponse.json(
+        { error: 'Supabase no configurado en este deployment. En Vercel → Environment Variables configura SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY para Preview. Luego Redeploy.' },
+        { status: 503 }
+      );
+    }
+    return NextResponse.json(
+      { error: 'Error al procesar la solicitud de pago' },
+      { status: 500 }
+    );
+  }
+}

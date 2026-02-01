@@ -1,0 +1,235 @@
+import { requireSupabaseAdmin } from '@/lib/supabase';
+import { generateTicketsPDF, type TicketItemForPDF } from '@/lib/pdf';
+import { sendPurchaseEmail, type PurchaseItemSummary } from '@/lib/email';
+import { createAccessToken } from '@/lib/security/access-token';
+import { NextResponse } from 'next/server';
+import type { OrderWithDetails } from '@/lib/types';
+
+const MAX_ATTEMPTS = 3;
+const BUCKET = 'tickets';
+
+function verifyCronSecret(request: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return false;
+  const auth = request.headers.get('authorization');
+  const bearer = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+  const headerSecret = request.headers.get('x-cron-secret');
+  return (bearer !== null && bearer === secret) || headerSecret === secret;
+}
+
+interface JobPayload {
+  external_reference: string;
+  order_ids: string[];
+  email: string;
+}
+
+export async function GET(request: Request) {
+  if (!verifyCronSecret(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const supabase = requireSupabaseAdmin();
+
+  const { data: jobs, error: fetchErr } = await supabase
+    .from('job_queue')
+    .select('id, type, payload, attempts')
+    .eq('type', 'generate_ticket_pdf')
+    .eq('status', 'pending')
+    .lte('attempts', MAX_ATTEMPTS - 1)
+    .order('created_at', { ascending: true })
+    .limit(5);
+
+  if (fetchErr || !jobs?.length) {
+    return NextResponse.json({ processed: 0 });
+  }
+
+  let processed = 0;
+  for (const job of jobs) {
+    const payload = job.payload as unknown as JobPayload;
+    if (!payload?.external_reference || !Array.isArray(payload.order_ids) || !payload.email) {
+      await supabase
+        .from('job_queue')
+        .update({
+          status: 'failed',
+          last_error: 'Payload inválido',
+          attempts: (job.attempts ?? 0) + 1,
+          processed_at: new Date().toISOString(),
+        })
+        .eq('id', job.id);
+      processed++;
+      continue;
+    }
+
+    await supabase
+      .from('job_queue')
+      .update({ status: 'processing', attempts: (job.attempts ?? 0) + 1 })
+      .eq('id', job.id);
+
+    try {
+      const { data: ordersWithDetails, error: orderErr } = await supabase
+        .from('orders')
+        .select(
+          `
+          id,
+          external_reference,
+          inventory_id,
+          user_email,
+          amount,
+          status,
+          created_at,
+          mp_payment_id,
+          quantity,
+          inventory:inventory_id (
+            id,
+            event_id,
+            ticket_type_id,
+            total_capacity,
+            event:event_id ( id, name, date, venue ),
+            ticket_type:ticket_type_id ( id, name, price )
+          )
+        `
+        )
+        .in('id', payload.order_ids)
+        .eq('status', 'paid')
+        .order('id', { ascending: true });
+
+      if (orderErr || !ordersWithDetails?.length) {
+        throw new Error('Órdenes no encontradas o no pagadas');
+      }
+
+      const { data: ticketRows, error: ticketsErr } = await supabase
+        .from('tickets')
+        .select('id, order_id, qr_uuid')
+        .in('order_id', payload.order_ids)
+        .order('created_at', { ascending: true });
+
+      if (ticketsErr || !ticketRows?.length) {
+        throw new Error('Tickets no encontrados');
+      }
+
+      const orderMap = new Map<string, OrderWithDetails>();
+      for (const ord of ordersWithDetails) {
+        const o = ord as unknown as {
+          id: string;
+          external_reference: string;
+          inventory_id: string;
+          user_email: string;
+          amount: number;
+          status: string;
+          created_at: string;
+          mp_payment_id: string | null;
+          inventory: {
+            id: string;
+            event_id: string;
+            ticket_type_id: string;
+            total_capacity: number;
+            event: { id: string; name: string; date: string; venue: string };
+            ticket_type: { id: string; name: string; price: number };
+          };
+        };
+        orderMap.set(o.id, {
+          id: o.id,
+          external_reference: o.external_reference,
+          inventory_id: o.inventory_id,
+          user_email: o.user_email,
+          amount: o.amount,
+          status: o.status as 'pending' | 'paid' | 'rejected',
+          mp_payment_id: o.mp_payment_id,
+          created_at: new Date(o.created_at),
+          inventory: {
+            id: o.inventory.id,
+            event_id: o.inventory.event_id,
+            ticket_type_id: o.inventory.ticket_type_id,
+            total_capacity: o.inventory.total_capacity,
+            event: {
+              id: o.inventory.event.id,
+              name: o.inventory.event.name,
+              date: new Date(o.inventory.event.date),
+              venue: o.inventory.event.venue,
+            },
+            ticket_type: {
+              id: o.inventory.ticket_type.id,
+              name: o.inventory.ticket_type.name,
+              price: Number(o.inventory.ticket_type.price),
+            },
+          },
+        });
+      }
+
+      const items: TicketItemForPDF[] = [];
+      for (const t of ticketRows) {
+        const ticket = t as { id: string; order_id: string; qr_uuid: string | null };
+        const orderWithDetails = orderMap.get(ticket.order_id);
+        if (orderWithDetails) {
+          items.push({
+            order: orderWithDetails,
+            ticketId: ticket.id,
+            qr_uuid: ticket.qr_uuid ?? undefined,
+          });
+        }
+      }
+
+      if (items.length === 0) {
+        throw new Error('No hay ítems para PDF');
+      }
+
+      const pdfBuffer = await generateTicketsPDF(items);
+      const path = `${payload.external_reference}/${job.id}.pdf`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, pdfBuffer, { contentType: 'application/pdf', upsert: true });
+
+      if (uploadErr) {
+        throw new Error(`Storage upload: ${uploadErr.message}`);
+      }
+
+      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      const pdfUrl = urlData?.publicUrl ?? '';
+
+      const itemsSummary: PurchaseItemSummary[] = ordersWithDetails.map((ord) => {
+        const o = ord as unknown as {
+          id: string;
+          quantity?: number;
+          inventory: { event: { name: string }; ticket_type: { name: string } };
+        };
+        const qty =
+          ticketRows.filter((t: { order_id: string }) => t.order_id === o.id).length || 1;
+        return {
+          eventName: o.inventory.event.name,
+          ticketTypeName: o.inventory.ticket_type.name,
+          quantity: qty,
+        };
+      });
+
+      const accessToken = createAccessToken(payload.external_reference);
+      await sendPurchaseEmail(payload.email, accessToken, itemsSummary, undefined, pdfUrl);
+
+      await supabase
+        .from('job_queue')
+        .update({
+          status: 'completed',
+          processed_at: new Date().toISOString(),
+          last_error: null,
+        })
+        .eq('id', job.id);
+
+      processed++;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const attempts = (job.attempts ?? 0) + 1;
+      await supabase
+        .from('job_queue')
+        .update({
+          status: attempts >= MAX_ATTEMPTS ? 'failed' : 'pending',
+          last_error: message,
+          processed_at: attempts >= MAX_ATTEMPTS ? new Date().toISOString() : null,
+        })
+        .eq('id', job.id);
+      processed++;
+      console.error('Worker process-tickets job error:', job.id, message);
+    }
+  }
+
+  return NextResponse.json({ processed });
+}

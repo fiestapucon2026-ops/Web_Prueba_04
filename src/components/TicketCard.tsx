@@ -3,8 +3,16 @@
 import { useRef, useCallback } from 'react';
 import QRCode from 'react-qr-code';
 import { toPng } from 'html-to-image';
-import download from 'downloadjs';
 import type { TicketCardData } from '@/types/ticket';
+
+function downloadDataUrlAsFile(dataUrl: string, filename: string): void {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
 
 const CATEGORY_STYLES: Record<string, { bg: string; border: string; text: string }> = {
   VIP: { bg: 'bg-amber-100', border: 'border-amber-500', text: 'text-amber-900' },
@@ -38,7 +46,7 @@ export function TicketCard({ ticket }: TicketCardProps) {
       cacheBust: true,
     })
       .then((dataUrl: string) => {
-        download(dataUrl, `entrada-${ticket.uuid.slice(0, 8)}.png`, 'image/png');
+        downloadDataUrlAsFile(dataUrl, `entrada-${ticket.uuid.slice(0, 8)}.png`);
       })
       .catch((err: unknown) => {
         console.error('Error capturing ticket image:', err);

@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "supabase", "respaldo_pre_tickets_qr", "respaldo_mod_venta_tickets"]
 }

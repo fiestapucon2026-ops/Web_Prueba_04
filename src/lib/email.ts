@@ -90,14 +90,15 @@ export interface PurchaseItemSummary {
 }
 
 /**
- * Envía un solo email por compra con enlace a "Mis entradas" y opcionalmente PDF único con todos los tickets.
+ * Envía un solo email por compra con enlace a "Mis entradas". Opcional: PDF adjunto y/o link a PDF en Storage.
  * Fuente email: payment.payer.email; fallback: orders[0].user_email.
  */
 export async function sendPurchaseEmail(
   to: string,
   accessToken: string,
   itemsSummary: PurchaseItemSummary[],
-  pdfBuffer?: Buffer
+  pdfBuffer?: Buffer,
+  pdfUrl?: string
 ): Promise<void> {
   const resend = requireResendClient();
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.festivalpucon.cl';
@@ -109,6 +110,11 @@ export async function sendPurchaseEmail(
         `<li style="margin: 4px 0;">${i.quantity}x ${i.ticketTypeName} — ${i.eventName}</li>`
     )
     .join('');
+
+  const pdfLinkHtml =
+    pdfUrl != null && pdfUrl !== ''
+      ? `<p style="margin-top: 16px;"><a href="${pdfUrl}" style="color: #1e40af;">Descargar PDF de entradas</a></p>`
+      : '';
 
   const attachments = pdfBuffer
     ? [
@@ -139,6 +145,7 @@ export async function sendPurchaseEmail(
           <p style="margin-top: 24px;">
             <a href="${misEntradasUrl}" style="display: inline-block; background-color: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Ver y descargar mis entradas</a>
           </p>
+          ${pdfLinkHtml}
           <p style="color: #6b7280; font-size: 14px;">El enlace es válido 7 días. Presenta tu entrada (impresa o en tu dispositivo) al ingresar al evento.</p>
           <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
             Festival Pucón 2026<br>

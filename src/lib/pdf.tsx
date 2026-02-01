@@ -1,13 +1,14 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet, pdf } from '@react-pdf/renderer';
-import QRCode from 'qrcode';
 import { signTicket } from '@/lib/security/qr-signer';
 import type { OrderWithDetails } from './types';
 
-/** Un ticket físico: orden con detalles + id de fila en tabla tickets (QR identifica esta entrada). */
+/** Un ticket físico: orden con detalles + id de fila en tabla tickets (QR identifica esta entrada). qr_uuid opcional para validación Online A. */
 export interface TicketItemForPDF {
   order: OrderWithDetails;
   ticketId: string;
+  /** Si existe, se usa como contenido del QR (validación en puerta por qr_uuid). */
+  qr_uuid?: string | null;
 }
 
 const styles = StyleSheet.create({
@@ -160,8 +161,9 @@ const TicketPDFPage: React.FC<TicketPageProps> = ({ order, qrDataUrl }) => {
   );
 };
 
-/** Genera imagen QR (data URL) para el token firmado del ticket. Solo servidor. */
+/** Genera imagen QR (data URL) para el token del ticket. Solo servidor. Import dinámico evita module-not-found en build Vercel. */
 async function qrDataUrlForToken(token: string): Promise<string> {
+  const { default: QRCode } = await import('qrcode');
   return QRCode.toDataURL(token, { width: 300, margin: 1 });
 }
 
@@ -171,8 +173,11 @@ async function qrDataUrlForToken(token: string): Promise<string> {
  */
 export async function generateTicketsPDF(items: TicketItemForPDF[]): Promise<Buffer> {
   const qrDataUrls: string[] = [];
-  for (const { order, ticketId } of items) {
-    const token = signTicket(ticketId, order.inventory.ticket_type.name);
+  for (const { order, ticketId, qr_uuid } of items) {
+    const token =
+      qr_uuid != null && qr_uuid !== ''
+        ? qr_uuid
+        : signTicket(ticketId, order.inventory.ticket_type.name);
     qrDataUrls.push(await qrDataUrlForToken(token));
   }
 

@@ -25,6 +25,7 @@ interface OrderRow {
 
 interface TicketRow {
   id: string;
+  qr_uuid?: string | null;
 }
 
 export async function GET(
@@ -70,7 +71,7 @@ export async function GET(
 
     const { data: ticketRows, error: ticketsError } = await supabase
       .from('tickets')
-      .select('id')
+      .select('id, qr_uuid')
       .eq('order_id', orderId)
       .order('created_at', { ascending: true });
 
@@ -91,7 +92,10 @@ export async function GET(
     for (const t of ticketRows ?? []) {
       const ticket = t as unknown as TicketRow;
       try {
-        const qrToken = signTicket(ticket.id, ticketType.name);
+        const qrToken =
+          ticket.qr_uuid != null && ticket.qr_uuid !== ''
+            ? String(ticket.qr_uuid)
+            : signTicket(ticket.id, ticketType.name);
         tickets.push({
           uuid: ticket.id,
           category: ticketType.name,

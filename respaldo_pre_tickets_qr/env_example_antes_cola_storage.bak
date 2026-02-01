@@ -1,0 +1,39 @@
+# Copiar a .env.local y completar valores
+# Desarrollo local y pruebas de Mercado Pago
+
+# Supabase (requerido para /api/tickets/*)
+SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+# Server-only (recomendado): bypass RLS en API routes/webhooks
+# NO exponer en cliente. Configurar en Vercel solo como variable server-side.
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# Mercado Pago (requerido para crear preferencias y webhook)
+MP_ACCESS_TOKEN=TEST-xxxxx
+# Production: usar Access Token de producción
+
+# Webhooks secret signature (recomendado): se obtiene en Your integrations → Webhooks → Secret signature
+MP_WEBHOOK_SECRET=your_secret_signature_here
+
+# Resend - Email (opcional; sin esto no se envía email con ticket)
+RESEND_API_KEY=re_xxxxx
+
+# URL base (para redirects y webhook)
+# Local: http://localhost:3000
+# Producción: https://www.festivalpucon.cl
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+
+# Página /success: redirección tras pago exitoso (opcional)
+# Por defecto: https://www.festivalpucon.cl
+# Siguiente módulo: ej. https://www.festivalpucon.cl/mis-entradas
+NEXT_PUBLIC_SUCCESS_REDIRECT_URL=
+# Segundos antes de redirigir (1-60, por defecto 10)
+NEXT_PUBLIC_SUCCESS_REDIRECT_SECONDS=10
+
+# Post-compra: firma QR para GET /api/orders/[id] y /checkout/success/[id]
+# Solo servidor. Valor largo y aleatorio (ej. openssl rand -hex 32).
+QR_SIGNING_SECRET=your_32_byte_hex_secret_here
+
+# Admin: clave para /admin/stock (gestión de stock, precios, % ocupación)
+# Generar valor aleatorio (ej. openssl rand -hex 24).
+ADMIN_SECRET=your_admin_secret_here
