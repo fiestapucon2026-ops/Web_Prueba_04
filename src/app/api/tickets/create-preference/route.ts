@@ -1,6 +1,7 @@
 import { requireMercadoPagoClient } from '@/lib/mercadopago';
 import { requireSupabaseClient } from '@/lib/supabase';
 import { CreatePreferenceSchema } from '@/lib/schemas';
+import { getBaseUrlFromRequest } from '@/lib/base-url';
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     const { event_id, ticket_type_id, quantity, payer_email } = validationResult.data;
-    const normalizedQuantity = 1;
+    const normalizedQuantity = Math.max(1, Math.min(8, quantity));
 
     const supabase = requireSupabaseClient();
 
@@ -141,7 +142,10 @@ export async function POST(request: Request) {
 
     // 2. Crear preferencia en Mercado Pago primero (evita órdenes huérfanas)
     const { preferenceClient } = requireMercadoPagoClient();
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.festivalpucon.cl';
+    const baseUrl = getBaseUrlFromRequest(
+      request,
+      process.env.NEXT_PUBLIC_BASE_URL || 'https://www.festivalpucon.cl'
+    );
 
     const eventsData = inventory.events;
     const event = Array.isArray(eventsData) ? eventsData[0] : eventsData;
@@ -161,7 +165,7 @@ export async function POST(request: Request) {
           items: [
             {
               id: ticket_type_id,
-              title: `${ticketTypeName} - ${eventName}`,
+              title: `${ticketTypeName} - ${eventName} (x${normalizedQuantity})`,
               quantity: normalizedQuantity,
               unit_price: unitPrice,
               currency_id: 'CLP',
@@ -208,6 +212,7 @@ export async function POST(request: Request) {
         inventory_id: inventory.id,
         user_email: payer_email,
         amount: totalAmount,
+        quantity: normalizedQuantity,
         status: 'pending',
       });
 
@@ -233,7 +238,21 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ init_point: initPoint });
   } catch (error) {
-    console.error('Error al crear preferencia de pago:', error);
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('Error al crear preferencia de pago:', err.message, err.stack);
+    // Pistas para errores de configuración en Vercel (Preview)
+    if (err.message.includes('MP_ACCESS_TOKEN')) {
+      return NextResponse.json(
+        { error: 'MP_ACCESS_TOKEN no configurado. En Vercel → Settings → Environment Variables, añade MP_ACCESS_TOKEN (TEST-...) y aplica a Preview. Luego Redeploy.' },
+        { status: 503 }
+      );
+    }
+    if (err.message.includes('Supabase no está configurado')) {
+      return NextResponse.json(
+        { error: 'Supabase no configurado en este deployment. En Vercel → Environment Variables configura SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY para Preview. Luego Redeploy.' },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: 'Error al procesar la solicitud de pago' },
       { status: 500 }

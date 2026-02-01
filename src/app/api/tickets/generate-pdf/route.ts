@@ -1,5 +1,5 @@
 import { requireSupabaseClient } from '@/lib/supabase';
-import { generateTicketPDF } from '@/lib/pdf';
+import { generateTicketsPDF } from '@/lib/pdf';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -81,10 +81,26 @@ export async function POST(request: Request) {
       },
     };
 
-    // Generar PDF
-    const pdfBuffer = await generateTicketPDF(orderWithDetails);
+    const { data: ticketRows } = await supabase
+      .from('tickets')
+      .select('id')
+      .eq('order_id', order_id)
+      .order('created_at', { ascending: true });
 
-    // Retornar PDF como respuesta (convertir Buffer a Uint8Array para compatibilidad)
+    const items = (ticketRows ?? []).map((t) => ({
+      order: orderWithDetails,
+      ticketId: t.id,
+    }));
+
+    if (items.length === 0) {
+      return NextResponse.json(
+        { error: 'No hay tickets para esta orden' },
+        { status: 404 }
+      );
+    }
+
+    const pdfBuffer = await generateTicketsPDF(items);
+
     return new Response(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',

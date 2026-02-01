@@ -1,29 +1,127 @@
-import Link from 'next/link';
+'use client';
 
-export default function SuccessPage() {
+import { Suspense, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+
+const DEFAULT_REDIRECT_URL = 'https://www.festivalpucon.cl';
+const MAX_WAIT_SECONDS = 10;
+const POLL_INTERVAL_MS = 2000;
+const POLL_ATTEMPTS = 5;
+
+function getRedirectUrl(): string {
+  const url = process.env.NEXT_PUBLIC_SUCCESS_REDIRECT_URL?.trim();
+  return url || DEFAULT_REDIRECT_URL;
+}
+
+function SuccessContent() {
+  const searchParams = useSearchParams();
+  const externalRef = searchParams.get('external_reference');
+  const status = searchParams.get('status');
+
+  const [redirectUrl] = useState(getRedirectUrl);
+  const [secondsLeft, setSecondsLeft] = useState(MAX_WAIT_SECONDS);
+  const [misEntradasUrl, setMisEntradasUrl] = useState<string | null>(null);
+  const redirectTargetRef = useRef<string>(redirectUrl);
+
+  // Actualizar ref para que el countdown siempre redirija al destino correcto
+  useEffect(() => {
+    redirectTargetRef.current = misEntradasUrl ?? redirectUrl;
+  }, [misEntradasUrl, redirectUrl]);
+
+  // Polling del token: cada 2 s, hasta 10 s (5 intentos)
+  useEffect(() => {
+    if (!externalRef || status !== 'approved') return;
+    let attempts = 0;
+    const tryFetch = () => {
+      if (attempts >= POLL_ATTEMPTS) return;
+      attempts += 1;
+      fetch(
+        `/api/orders/access-token?external_reference=${encodeURIComponent(externalRef)}`
+      )
+        .then((res) => res.json())
+        .then((data: { token?: string }) => {
+          if (data?.token) {
+            setMisEntradasUrl(`/mis-entradas?token=${encodeURIComponent(data.token)}`);
+          }
+        })
+        .catch(() => {});
+    };
+    tryFetch();
+    const id = setInterval(tryFetch, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [externalRef, status]);
+
+  // Countdown fijo 10 s; al llegar a 0 redirige a mis-entradas o fallback
+  useEffect(() => {
+    const t = setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) {
+          clearInterval(t);
+          window.location.href = redirectTargetRef.current;
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [redirectUrl]);
+
+  const isAbsolute = redirectUrl.startsWith('http');
+  const linkLabel = isAbsolute ? redirectUrl.replace(/^https?:\/\//, '') : redirectUrl;
+  const primaryHref = misEntradasUrl ?? redirectUrl;
+  const primaryLabel = misEntradasUrl
+    ? 'Ver mis entradas'
+    : isAbsolute
+      ? `Ir a ${linkLabel}`
+      : 'Ver mis entradas';
+
   return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
       <div className="max-w-lg w-full bg-black border border-[#cc0000] rounded-lg p-8 shadow-[0_4px_12px_#ff9999] text-center">
         <div className="mb-6 text-5xl" aria-hidden>✓</div>
-        <h1 className="text-2xl font-bold text-white mb-2">Pago exitoso</h1>
+        <h1 className="text-2xl font-bold text-white mb-2">Venta exitosa</h1>
         <p className="text-gray-300 mb-6">
-          Tu compra fue procesada correctamente. Revisa tu correo; te enviamos el ticket y los detalles de tu entrada.
+          Tu pago se acreditó correctamente. En breve verás tus entradas.
+        </p>
+        <p className="text-gray-400 text-sm mb-6">
+          {misEntradasUrl
+            ? 'Redirigiendo a tus entradas…'
+            : `Serás redirigido a tus entradas en ${secondsLeft} segundos.`}
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
-            href="/tickets"
+            href={primaryHref}
             className="inline-block bg-[#cc0000] hover:bg-[#b30000] text-white font-semibold py-3 px-6 rounded-lg transition-colors"
           >
-            Comprar más entradas
+            {primaryLabel}
           </Link>
           <Link
-            href="/"
+            href="/entradas"
             className="inline-block border border-[#737373] hover:border-[#a6a6a6] text-white font-semibold py-3 px-6 rounded-lg transition-colors"
           >
-            Volver al inicio
+            Comprar más entradas
           </Link>
         </div>
       </div>
     </main>
+  );
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
+          <div className="max-w-lg w-full bg-black border border-[#cc0000] rounded-lg p-8 shadow-[0_4px_12px_#ff9999] text-center">
+            <div className="mb-6 text-5xl" aria-hidden>✓</div>
+            <h1 className="text-2xl font-bold text-white mb-2">Venta exitosa</h1>
+            <p className="text-gray-300 mb-6">Cargando...</p>
+          </div>
+        </main>
+      }
+    >
+      <SuccessContent />
+    </Suspense>
   );
 }
