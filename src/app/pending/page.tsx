@@ -11,7 +11,7 @@ export default function PendingPage() {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
-            href="/tickets"
+            href="/entradas"
             className="inline-block bg-[#cc0000] hover:bg-[#b30000] text-white font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Ver entradas

@@ -1,7 +1,8 @@
 import { requireMercadoPagoClient } from '@/lib/mercadopago';
 import { requireSupabaseClient } from '@/lib/supabase';
-import { generateTicketPDF } from '@/lib/pdf';
-import { sendTicketEmail } from '@/lib/email';
+import { generateTicketsPDF, type TicketItemForPDF } from '@/lib/pdf';
+import { sendPurchaseEmail, type PurchaseItemSummary } from '@/lib/email';
+import { createAccessToken } from '@/lib/security/access-token';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import crypto from 'crypto';
@@ -149,150 +150,253 @@ export async function POST(request: Request) {
           return NextResponse.json({ status: 'OK' }, { status: 200 });
         }
 
-        // Buscar orden por external_reference
-        const { data: order, error: orderError } = await supabase
+        // Buscar TODAS las órdenes con este external_reference (entradas puede tener main + parking + promo)
+        const { data: orders, error: orderError } = await supabase
           .from('orders')
-          .select('id, status, external_reference')
+          .select('id, status, external_reference, quantity, inventory_id, user_email')
           .eq('external_reference', payment.external_reference)
-          .single();
+          .order('id', { ascending: true });
 
-        if (orderError || !order) {
-          console.error('❌ Orden no encontrada:', payment.external_reference);
+        if (orderError || !orders?.length) {
+          console.error('❌ Órdenes no encontradas:', payment.external_reference);
           return NextResponse.json({ status: 'OK' }, { status: 200 });
         }
 
         // Switch según estado del pago
         switch (payment.status) {
           case 'approved': {
-            if (order.status === 'paid') {
-              console.log('✅ Orden ya marcada como pagada:', order.id);
+            // Verificar si ya todas están pagadas
+            const allPaid = orders.every((o) => o.status === 'paid');
+            if (allPaid) {
+              console.log('✅ Órdenes ya marcadas como pagadas:', payment.external_reference);
               return NextResponse.json({ status: 'OK' }, { status: 200 });
             }
 
-            // Update atómico: solo una request gana la transición pending → paid (evita doble PDF/email)
-            const { data: updatedRow, error: updateError } = await supabase
+            // Actualizar todas las órdenes de este pago a paid
+            const { error: updateError } = await supabase
               .from('orders')
               .update({
                 status: 'paid',
                 mp_payment_id: String(paymentId),
               })
-              .eq('id', order.id)
-              .eq('status', 'pending')
-              .select('id')
-              .single();
+              .eq('external_reference', payment.external_reference)
+              .eq('status', 'pending');
 
-            if (updateError || !updatedRow) {
-              // Otro request ya actualizó o error; no enviar PDF
-              if (updateError) console.error('❌ Error al actualizar orden:', updateError);
+            if (updateError) {
+              console.error('❌ Error al actualizar órdenes:', updateError);
               return NextResponse.json({ status: 'OK' }, { status: 200 });
             }
 
             console.log(
-              '✅ PAGO CONFIRMADO. Orden:',
+              '✅ PAGO CONFIRMADO. external_reference:',
               payment.external_reference,
+              'Órdenes:',
+              orders.length,
               'Email:',
               payment.payer?.email || 'N/A'
             );
 
-            // Obtener orden completa con detalles para PDF y email (solo quien ganó el update)
-            const { data: orderWithDetails, error: detailsError } = await supabase
-              .from('orders')
-              .select(`
-                *,
-                inventory:inventory_id (
-                  *,
-                  event:event_id (
-                    *
-                  ),
-                  ticket_type:ticket_type_id (
-                    *
-                  )
-                )
-              `)
-              .eq('id', order.id)
-              .single();
-
-            if (detailsError || !orderWithDetails) {
-              console.error('❌ Error al obtener detalles de orden:', detailsError);
-              return NextResponse.json({ status: 'OK' }, { status: 200 });
+            // Crear filas en tickets (una por unidad): idempotente por order_id
+            for (const order of orders) {
+              const orderId = order.id;
+              const inventoryId = order.inventory_id;
+              const qty = Math.max(1, Number(order.quantity) || 1);
+              if (!inventoryId) continue;
+              const { count: existingTickets } = await supabase
+                .from('tickets')
+                .select('*', { count: 'exact', head: true })
+                .eq('order_id', orderId);
+              if (existingTickets && existingTickets > 0) continue;
+              const ticketRows = Array.from({ length: qty }, () => ({
+                order_id: orderId,
+                inventory_id: inventoryId,
+                status: 'sold_unused' as const,
+                discount_amount: 0,
+              }));
+              const { error: ticketsErr } = await supabase.from('tickets').insert(ticketRows);
+              if (ticketsErr) console.error('❌ Error al crear tickets para orden:', orderId, ticketsErr);
             }
 
-            // Transformar datos para el tipo OrderWithDetails
-            const orderData = {
-              id: orderWithDetails.id,
-              external_reference: orderWithDetails.external_reference,
-              inventory_id: orderWithDetails.inventory_id,
-              user_email: orderWithDetails.user_email,
-              amount: Number(orderWithDetails.amount),
-              status: orderWithDetails.status as 'pending' | 'paid' | 'rejected',
-              mp_payment_id: orderWithDetails.mp_payment_id,
-              created_at: new Date(orderWithDetails.created_at),
-              inventory: {
-                id: orderWithDetails.inventory.id,
-                event_id: orderWithDetails.inventory.event_id,
-                ticket_type_id: orderWithDetails.inventory.ticket_type_id,
-                total_capacity: orderWithDetails.inventory.total_capacity,
-                event: {
-                  id: orderWithDetails.inventory.event.id,
-                  name: orderWithDetails.inventory.event.name,
-                  date: new Date(orderWithDetails.inventory.event.date),
-                  venue: orderWithDetails.inventory.event.venue,
+            // Un email por compra: agrupar por external_reference, enlace "Mis entradas" + PDF único con QR
+            const orderIds = orders.map((o) => o.id);
+            const { data: ordersWithDetails, error: detailsError } = await supabase
+              .from('orders')
+              .select(`
+                id,
+                external_reference,
+                inventory_id,
+                user_email,
+                amount,
+                status,
+                created_at,
+                mp_payment_id,
+                quantity,
+                inventory:inventory_id (
+                  id,
+                  event_id,
+                  ticket_type_id,
+                  total_capacity,
+                  event:event_id ( id, name, date, venue ),
+                  ticket_type:ticket_type_id ( id, name, price )
+                )
+              `)
+              .eq('external_reference', payment.external_reference)
+              .eq('status', 'paid');
+
+            if (detailsError || !ordersWithDetails?.length) {
+              console.error('❌ Error al obtener detalles de órdenes:', detailsError);
+              break;
+            }
+
+            const { data: allTickets, error: ticketsFetchError } = await supabase
+              .from('tickets')
+              .select('id, order_id')
+              .in('order_id', orderIds)
+              .order('created_at', { ascending: true });
+
+            if (ticketsFetchError || !allTickets?.length) {
+              console.error('❌ Error al obtener tickets para email:', ticketsFetchError);
+              break;
+            }
+
+            const orderMap = new Map<
+              string,
+              {
+                id: string;
+                external_reference: string;
+                inventory_id: string;
+                user_email: string;
+                amount: number;
+                status: 'pending' | 'paid' | 'rejected';
+                mp_payment_id: string | null;
+                created_at: Date;
+                inventory: {
+                  id: string;
+                  event_id: string;
+                  ticket_type_id: string;
+                  total_capacity: number;
+                  event: { id: string; name: string; date: Date; venue: string };
+                  ticket_type: { id: string; name: string; price: number };
+                };
+              }
+            >();
+
+            for (const ord of ordersWithDetails) {
+              const o = ord as unknown as {
+                id: string;
+                external_reference: string;
+                inventory_id: string;
+                user_email: string;
+                amount: number;
+                status: string;
+                created_at: string;
+                mp_payment_id: string | null;
+                inventory: {
+                  id: string;
+                  event_id: string;
+                  ticket_type_id: string;
+                  total_capacity: number;
+                  event: { id: string; name: string; date: string; venue: string };
+                  ticket_type: { id: string; name: string; price: number };
+                };
+              };
+              orderMap.set(o.id, {
+                id: o.id,
+                external_reference: o.external_reference,
+                inventory_id: o.inventory_id,
+                user_email: o.user_email,
+                amount: o.amount,
+                status: o.status as 'pending' | 'paid' | 'rejected',
+                mp_payment_id: o.mp_payment_id,
+                created_at: new Date(o.created_at),
+                inventory: {
+                  id: o.inventory.id,
+                  event_id: o.inventory.event_id,
+                  ticket_type_id: o.inventory.ticket_type_id,
+                  total_capacity: o.inventory.total_capacity,
+                  event: {
+                    id: o.inventory.event.id,
+                    name: o.inventory.event.name,
+                    date: new Date(o.inventory.event.date),
+                    venue: o.inventory.event.venue,
+                  },
+                  ticket_type: {
+                    id: o.inventory.ticket_type.id,
+                    name: o.inventory.ticket_type.name,
+                    price: Number(o.inventory.ticket_type.price),
+                  },
                 },
-                ticket_type: {
-                  id: orderWithDetails.inventory.ticket_type.id,
-                  name: orderWithDetails.inventory.ticket_type.name,
-                  price: Number(orderWithDetails.inventory.ticket_type.price),
-                },
-              },
-            };
+              });
+            }
+
+            const items: TicketItemForPDF[] = [];
+            for (const t of allTickets) {
+              const ticket = t as { id: string; order_id: string };
+              const orderWithDetails = orderMap.get(ticket.order_id);
+              if (orderWithDetails) items.push({ order: orderWithDetails, ticketId: ticket.id });
+            }
+
+            const itemsSummary: PurchaseItemSummary[] = ordersWithDetails.map((ord) => {
+              const o = ord as unknown as {
+                id: string;
+                quantity?: number;
+                inventory: { event: { name: string }; ticket_type: { name: string } };
+              };
+              const orig = orders.find((x) => x.id === o.id);
+              const qty = Math.max(1, Number(orig?.quantity) || 1);
+              return {
+                eventName: o.inventory.event.name,
+                ticketTypeName: o.inventory.ticket_type.name,
+                quantity: qty,
+              };
+            });
+
+            const toEmail = payment.payer?.email ?? orders[0].user_email ?? '';
+            if (!toEmail) {
+              console.error('❌ Sin email para enviar (payer ni orders[0].user_email)');
+              break;
+            }
 
             try {
-              // Generar PDF
-              const pdfBuffer = await generateTicketPDF(orderData);
-
-              // Enviar email con PDF adjunto
-              await sendTicketEmail(orderData, pdfBuffer);
-
-              console.log('✅ PDF generado y email enviado para orden:', order.id);
-            } catch (pdfEmailError) {
-              // Log error pero no fallar el webhook
-              console.error('❌ Error al generar PDF o enviar email:', pdfEmailError);
-              // La orden ya está marcada como paid, el email se puede reenviar manualmente
+              const accessToken = createAccessToken(payment.external_reference);
+              const pdfBuffer = await generateTicketsPDF(items);
+              await sendPurchaseEmail(toEmail, accessToken, itemsSummary, pdfBuffer);
+              console.log('✅ Email único enviado para compra:', payment.external_reference);
+            } catch (emailError) {
+              console.error('❌ Error al enviar email de compra:', payment.external_reference, emailError);
             }
 
             break;
           }
 
           case 'rejected': {
-            // Actualizar orden a 'rejected'
             await supabase
               .from('orders')
               .update({
                 status: 'rejected',
                 mp_payment_id: String(paymentId),
               })
-              .eq('id', order.id);
+              .eq('external_reference', payment.external_reference);
 
             console.log(
               '❌ PAGO RECHAZADO. Razón:',
               payment.status_detail,
-              'Orden:',
+              'external_reference:',
               payment.external_reference
             );
             break;
           }
 
           case 'pending': {
-            // Mantener status 'pending' pero guardar mp_payment_id
             await supabase
               .from('orders')
               .update({
                 mp_payment_id: String(paymentId),
               })
-              .eq('id', order.id);
+              .eq('external_reference', payment.external_reference);
 
             console.log(
-              '⏳ PAGO PENDIENTE. Orden:',
+              '⏳ PAGO PENDIENTE. external_reference:',
               payment.external_reference,
               'Email:',
               payment.payer?.email || 'N/A'
@@ -301,17 +405,16 @@ export async function POST(request: Request) {
           }
 
           case 'cancelled': {
-            // Actualizar orden a 'rejected' (o crear status 'cancelled' si existe)
             await supabase
               .from('orders')
               .update({
                 status: 'rejected',
                 mp_payment_id: String(paymentId),
               })
-              .eq('id', order.id);
+              .eq('external_reference', payment.external_reference);
 
             console.log(
-              '🚫 PAGO CANCELADO. Orden:',
+              '🚫 PAGO CANCELADO. external_reference:',
               payment.external_reference
             );
             break;
