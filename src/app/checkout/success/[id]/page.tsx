@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
-import { TicketCard, type TicketCardData } from '@/components/TicketCard';
+import { TicketCard, type TicketCardData } from '@/components/TicketCardDynamic';
 
 /** Matches GET /api/orders/[id] response. */
 interface OrderResponse {

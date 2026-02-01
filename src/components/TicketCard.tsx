@@ -4,14 +4,7 @@ import { useRef, useCallback } from 'react';
 import QRCode from 'react-qr-code';
 import { toPng } from 'html-to-image';
 import download from 'downloadjs';
-
-/** Ticket item from GET /api/orders/[id]. Token is read-only; no signing or modification. */
-export interface TicketCardData {
-  uuid: string;
-  category: string;
-  access_window: string;
-  qr_token: string;
-}
+import type { TicketCardData } from '@/types/ticket';
 
 const CATEGORY_STYLES: Record<string, { bg: string; border: string; text: string }> = {
   VIP: { bg: 'bg-amber-100', border: 'border-amber-500', text: 'text-amber-900' },

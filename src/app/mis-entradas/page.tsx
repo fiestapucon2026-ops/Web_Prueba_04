@@ -3,7 +3,7 @@
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
-import { TicketCard, type TicketCardData } from '@/components/TicketCard';
+import { TicketCard, type TicketCardData } from '@/components/TicketCardDynamic';
 import Link from 'next/link';
 
 interface ByReferenceResponse {
