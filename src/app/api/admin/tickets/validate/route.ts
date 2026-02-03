@@ -7,11 +7,9 @@ const BodySchema = z.object({
 });
 
 /**
- * POST /api/tickets/validate
- * Valida un ticket en puerta por qr_uuid (contenido del QR).
- * Si es válido (sold_unused): marca como used y scanned_at; retorna valid: true.
- * Si ya fue usado: retorna valid: false, message: 'Entrada ya utilizada'.
- * Si no existe: retorna valid: false, message: 'Entrada no válida'.
+ * POST /api/admin/tickets/validate
+ * Proxy de validación protegido por auth admin (middleware).
+ * Mismo contrato que POST /api/tickets/validate.
  */
 export async function POST(request: Request) {
   try {
@@ -42,7 +40,7 @@ export async function POST(request: Request) {
       { status }
     );
   } catch (err) {
-    console.error('POST /api/tickets/validate error:', err);
+    console.error('POST /api/admin/tickets/validate error:', err);
     return NextResponse.json(
       { valid: false, message: 'Error interno' },
       { status: 500 }
