@@ -8,6 +8,8 @@ type ValidateResult = {
   ticket_id?: string;
 };
 
+const MAX_SCANS_PER_SECOND = 6;
+
 export default function AdminValidarQrPage() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [inputKey, setInputKey] = useState('');
@@ -15,6 +17,11 @@ export default function AdminValidarQrPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ValidateResult | null>(null);
   const [validating, setValidating] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [useFileFallback, setUseFileFallback] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scannerRef = useRef<InstanceType<typeof import('qr-scanner').default> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const checkAuth = useCallback(async (): Promise<boolean> => {
@@ -90,6 +97,109 @@ export default function AdminValidarQrPage() {
     return { valid: false, message: data.message ?? data.error ?? 'Error al validar' };
   }, []);
 
+  const handleDecoded = useCallback(
+    async (data: string) => {
+      if (scannerRef.current) {
+        scannerRef.current.stop();
+        scannerRef.current.destroy();
+        scannerRef.current = null;
+      }
+      setValidating(true);
+      setResult(null);
+      try {
+        const r = await validateQrUuid(data);
+        setResult(r);
+      } finally {
+        setValidating(false);
+      }
+    },
+    [validateQrUuid]
+  );
+
+  useEffect(() => {
+    if (authenticated !== true || useFileFallback || result !== null) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    let mounted = true;
+    let scanner: InstanceType<typeof import('qr-scanner').default> | null = null;
+
+    const init = async () => {
+      try {
+        const QrScanner = (await import('qr-scanner')).default;
+        const hasCam = await QrScanner.hasCamera();
+        if (!mounted || !hasCam) {
+          setCameraError('No se detectó cámara. Usa "Subir imagen".');
+          setUseFileFallback(true);
+          return;
+        }
+        scanner = new QrScanner(
+          video,
+          (scanResult) => {
+            const text = typeof scanResult === 'string' ? scanResult : scanResult.data;
+            if (text && mounted) handleDecoded(text);
+          },
+          {
+            preferredCamera: 'environment',
+            maxScansPerSecond: MAX_SCANS_PER_SECOND,
+            returnDetailedScanResult: true,
+          }
+        );
+        scannerRef.current = scanner;
+        await scanner.start();
+        if (mounted) {
+          setCameraReady(true);
+          setCameraError(null);
+        }
+      } catch (err) {
+        if (mounted) {
+          setCameraError('No se pudo usar la cámara. Usa "Subir imagen" como respaldo.');
+          setUseFileFallback(true);
+        }
+      }
+    };
+
+    init();
+    return () => {
+      mounted = false;
+      if (scanner) {
+        scanner.stop();
+        scanner.destroy();
+      }
+      scannerRef.current = null;
+      setCameraReady(false);
+    };
+  }, [authenticated, useFileFallback, handleDecoded, result]);
+
+  const handleValidarOtro = useCallback(() => {
+    setResult(null);
+    setCameraError(null);
+    if (useFileFallback) {
+      fileInputRef.current?.click();
+      return;
+    }
+    setCameraReady(false);
+    const video = videoRef.current;
+    if (video && !scannerRef.current) {
+      import('qr-scanner').then(({ default: QrScanner }) => {
+        const scanner = new QrScanner(
+          video,
+          (scanResult) => {
+            const text = typeof scanResult === 'string' ? scanResult : scanResult.data;
+            if (text) handleDecoded(text);
+          },
+          {
+            preferredCamera: 'environment',
+            maxScansPerSecond: MAX_SCANS_PER_SECOND,
+            returnDetailedScanResult: true,
+          }
+        );
+        scannerRef.current = scanner;
+        scanner.start().then(() => setCameraReady(true));
+      });
+    }
+  }, [useFileFallback, handleDecoded]);
+
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -98,22 +208,18 @@ export default function AdminValidarQrPage() {
       setResult(null);
       setValidating(true);
       try {
-        const { Html5Qrcode } = await import('html5-qrcode');
-        const placeholderId = 'qr-file-placeholder';
-        let el = document.getElementById(placeholderId);
-        if (!el) {
-          el = document.createElement('div');
-          el.id = placeholderId;
-          el.setAttribute('aria-hidden', 'true');
-          el.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;';
-          document.body.appendChild(el);
-        }
-        const scanner = new Html5Qrcode(placeholderId);
-        const decoded = await scanner.scanFile(file, false);
-        const r = await validateQrUuid(decoded);
+        const QrScanner = (await import('qr-scanner')).default;
+        const scanResult = await QrScanner.scanImage(file, {
+          returnDetailedScanResult: true,
+        });
+        const data = typeof scanResult === 'string' ? scanResult : scanResult.data;
+        const r = await validateQrUuid(data);
         setResult(r);
       } catch {
-        setResult({ valid: false, message: 'No se pudo leer el QR. Enfoca bien el código o sube otra imagen.' });
+        setResult({
+          valid: false,
+          message: 'No se encontró un QR en la imagen. Prueba otra.',
+        });
       } finally {
         setValidating(false);
       }
@@ -121,12 +227,12 @@ export default function AdminValidarQrPage() {
     [validateQrUuid]
   );
 
-  const handleValidarOtro = useCallback(() => {
-    setResult(null);
-    fileInputRef.current?.click();
-  }, []);
-
   const handleLogout = async () => {
+    if (scannerRef.current) {
+      scannerRef.current.stop();
+      scannerRef.current.destroy();
+      scannerRef.current = null;
+    }
     await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' });
     setAuthenticated(false);
     setResult(null);
@@ -144,9 +250,7 @@ export default function AdminValidarQrPage() {
     return (
       <main className="min-h-screen bg-slate-900 px-4 py-12">
         <div className="mx-auto max-w-sm">
-          <h1 className="mb-6 text-xl font-bold text-white">
-            Validar entrada QR
-          </h1>
+          <h1 className="mb-6 text-xl font-bold text-white">Validar entrada QR</h1>
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label htmlFor="admin-key" className="mb-1 block text-sm text-slate-300">
@@ -162,9 +266,7 @@ export default function AdminValidarQrPage() {
                 autoComplete="current-password"
               />
             </div>
-            {loginError && (
-              <p className="text-sm text-red-400">{loginError}</p>
-            )}
+            {loginError && <p className="text-sm text-red-400">{loginError}</p>}
             <button
               type="submit"
               disabled={loading}
@@ -226,18 +328,51 @@ export default function AdminValidarQrPage() {
               Escanear otra entrada
             </button>
           </div>
+        ) : useFileFallback ? (
+          <div className="space-y-3">
+            {cameraError && (
+              <p className="rounded-lg bg-amber-900/30 border border-amber-700 px-3 py-2 text-sm text-amber-200">
+                {cameraError}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={validating}
+              className="w-full rounded-xl border-2 border-dashed border-slate-500 bg-slate-800/50 px-4 py-10 text-slate-200 hover:border-slate-400 hover:bg-slate-800 disabled:opacity-50"
+            >
+              <span className="block text-base font-medium">Subir imagen con QR</span>
+              <span className="mt-1 block text-sm text-slate-400">
+                Toca para tomar foto o elegir imagen
+              </span>
+            </button>
+          </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={validating}
-            className="w-full rounded-xl border-2 border-dashed border-slate-500 bg-slate-800/50 px-4 py-12 text-slate-200 hover:border-slate-400 hover:bg-slate-800 disabled:opacity-50"
-          >
-            <span className="block text-base font-medium">Escanear QR</span>
-            <span className="mt-1 block text-sm text-slate-400">
-              Toca para tomar foto o elegir imagen
-            </span>
-          </button>
+          <div className="space-y-3">
+            <div className="relative overflow-hidden rounded-xl border border-slate-600 bg-black aspect-[4/3]">
+              <video
+                ref={videoRef}
+                className="absolute inset-0 h-full w-full object-cover"
+                muted
+                playsInline
+              />
+              {!cameraReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
+                  <p className="text-slate-400">Iniciando cámara...</p>
+                </div>
+              )}
+            </div>
+            <p className="text-center text-sm text-slate-400">
+              Apunta al QR de la entrada. No se guarda ninguna foto.
+            </p>
+            <button
+              type="button"
+              onClick={() => { setUseFileFallback(true); setCameraError(null); }}
+              className="w-full rounded-lg border border-slate-600 py-2 text-sm text-slate-300 hover:bg-slate-800"
+            >
+              Usar imagen en su lugar
+            </button>
+          </div>
         )}
       </div>
     </main>
