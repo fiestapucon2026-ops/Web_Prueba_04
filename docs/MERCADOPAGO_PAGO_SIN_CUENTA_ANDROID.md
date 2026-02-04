@@ -4,9 +4,9 @@
 
 En Samsung Galaxy (y otros Android), el Checkout Pro de Mercado Pago puede mostrar primero la opción de "Entrar con Mercado Pago" o crear cuenta, mientras que en iPhone suele permitir "Pagar con tarjeta" sin iniciar sesión.
 
-## Cambio aplicado en código
+## Intento en código (revertido)
 
-En la creación de la **preferencia** de pago se añadió:
+Se probó añadir en la preferencia:
 
 ```json
 "payment_methods": {
@@ -14,8 +14,7 @@ En la creación de la **preferencia** de pago se añadió:
 }
 ```
 
-- **Efecto:** Se excluye el método "Dinero en cuenta" (cuenta Mercado Pago). El checkout debería priorizar **tarjeta de crédito/débito**, que es el flujo donde el usuario puede ingresar los datos de la tarjeta sin tener cuenta MP.
-- **Rutas afectadas:** `POST /api/tickets/create-preference` y `POST /api/entradas/create-preference`.
+**Resultado:** En producción (Chile) la API de Mercado Pago rechazó la preferencia y se mostró "Error al crear la sesión de pago. Reintentar más tarde." Por tanto ese bloque se **revirtió** y ya no se envía. El id `account_money` puede no ser válido para el sitio Chile o la cuenta.
 
 ## Si en Android sigue pidiendo cuenta
 

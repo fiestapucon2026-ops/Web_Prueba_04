@@ -225,9 +225,6 @@ export async function POST(request: Request) {
     const mpBody = {
       items: mpItems,
       payer: { email: customer.email },
-      payment_methods: {
-        excluded_payment_types: [{ id: 'account_money' }],
-      },
       back_urls: {
         success: successUrl,
         failure: failureUrl,

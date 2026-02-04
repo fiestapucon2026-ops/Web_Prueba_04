@@ -219,9 +219,6 @@ export async function POST(request: Request) {
             },
           ],
           payer: { email: payer_email },
-          payment_methods: {
-            excluded_payment_types: [{ id: 'account_money' }],
-          },
           back_urls: {
             success: `${baseUrl}/success`,
             failure: `${baseUrl}/failure`,
