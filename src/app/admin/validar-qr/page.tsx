@@ -8,7 +8,23 @@ type ValidateResult = {
   ticket_id?: string;
 };
 
-const MAX_SCANS_PER_SECOND = 6;
+const MAX_SCANS_PER_SECOND = 12;
+
+/** Escanear todo el frame (mejor lectura a distintas distancias). Mantiene proporción al redimensionar. */
+function fullFrameScanRegion(video: HTMLVideoElement) {
+  const w = video.videoWidth || 640;
+  const h = video.videoHeight || 480;
+  const max = 800;
+  const scale = Math.min(1, max / Math.max(w, h));
+  return {
+    x: 0,
+    y: 0,
+    width: w,
+    height: h,
+    downScaledWidth: Math.round(w * scale),
+    downScaledHeight: Math.round(h * scale),
+  };
+}
 
 export default function AdminValidarQrPage() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -143,9 +159,11 @@ export default function AdminValidarQrPage() {
             preferredCamera: 'environment',
             maxScansPerSecond: MAX_SCANS_PER_SECOND,
             returnDetailedScanResult: true,
+            calculateScanRegion: fullFrameScanRegion,
           }
         );
         scannerRef.current = scanner;
+        scanner.setInversionMode('both');
         await scanner.start();
         if (mounted) {
           setCameraReady(true);
@@ -192,9 +210,11 @@ export default function AdminValidarQrPage() {
             preferredCamera: 'environment',
             maxScansPerSecond: MAX_SCANS_PER_SECOND,
             returnDetailedScanResult: true,
+            calculateScanRegion: fullFrameScanRegion,
           }
         );
         scannerRef.current = scanner;
+        scanner.setInversionMode('both');
         scanner.start().then(() => setCameraReady(true));
       });
     }
