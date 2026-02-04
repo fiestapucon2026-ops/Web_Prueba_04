@@ -4,11 +4,12 @@ import crypto from 'crypto';
  * Token de acceso "Mis entradas" — SERVER-SIDE ONLY.
  * Formato: base64url(external_reference|timestamp) + '.' + base64url(signature)
  * Firma: HMAC-SHA256(external_reference|timestamp, QR_SIGNING_SECRET)
- * TTL: 7 días desde timestamp.
+ * TTL: 24 horas desde timestamp (reduce ventana IDOR).
  */
 
 const ALGORITHM = 'sha256';
-const TTL_SECONDS = 7 * 24 * 60 * 60;
+/** TTL del token "Mis entradas": 24h (reduce ventana de IDOR si se filtra el link). */
+const TTL_SECONDS = 24 * 60 * 60;
 
 function base64UrlEncode(buffer: Buffer): string {
   return buffer

@@ -3,6 +3,11 @@ PROJECT: web_oficial_festival (Ticket Sales Platform)
 STACK: Next.js 14+, TypeScript (Strict), Tailwind, Vercel, Mercado Pago.
 CRITICALITY: HIGH (Financial Transactions).
 
+# REGLA DE ORO (LA MÁS IMPORTANTE)
+- Los cambios ESTÉTICOS no pueden modificar código que afecte al sistema.
+- Sistema = flujo de pago, APIs, webhooks, tokens, seguridad, órdenes, tickets, Supabase, Mercado Pago.
+- Estética = solo CSS, textos, imágenes, layout visual, sin tocar lógica ni rutas API ni flujos críticos.
+
 # OPERATIONAL_PROTOCOL: DOUBLE_CONFIRMATION
 The AI is strictly FORBIDDEN from modifying code without explicit authorization.
 

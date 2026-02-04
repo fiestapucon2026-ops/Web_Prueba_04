@@ -1,0 +1,114 @@
+'use client';
+
+import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+
+const DEFAULT_REDIRECT_URL = 'https://www.festivalpucon.cl';
+const POLL_INTERVAL_MS = 2000;
+const POLL_ATTEMPTS = 5;
+
+function getRedirectUrl(): string {
+  const url = process.env.NEXT_PUBLIC_SUCCESS_REDIRECT_URL?.trim();
+  return url || DEFAULT_REDIRECT_URL;
+}
+
+function SuccessContent() {
+  const searchParams = useSearchParams();
+  const externalRef = searchParams.get('external_reference');
+  const paymentId = searchParams.get('collection_id') ?? searchParams.get('payment_id');
+  const status = searchParams.get('status') ?? searchParams.get('collection_status') ?? '';
+  const isApproved = status === 'approved' || status === 'appro';
+
+  const [redirectUrl] = useState(getRedirectUrl);
+  const [misEntradasUrl, setMisEntradasUrl] = useState<string | null>(null);
+
+  // Polling del token: external_reference o payment_id (collection_id). Sin countdown ni redirección automática.
+  useEffect(() => {
+    if ((!externalRef && !paymentId) || !isApproved) return;
+    let attempts = 0;
+    const tryFetch = () => {
+      if (attempts >= POLL_ATTEMPTS) return;
+      attempts += 1;
+      const query = externalRef
+        ? `external_reference=${encodeURIComponent(externalRef)}`
+        : `payment_id=${encodeURIComponent(paymentId!)}`;
+      fetch(`/api/orders/access-token?${query}`)
+        .then((res) => res.json())
+        .then((data: { token?: string }) => {
+          if (data?.token && typeof window !== 'undefined') {
+            window.sessionStorage.setItem('mis_entradas_token', data.token);
+            setMisEntradasUrl('/mis-entradas');
+          }
+        })
+        .catch(() => {});
+    };
+    tryFetch();
+    const id = setInterval(tryFetch, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [externalRef, paymentId, isApproved]);
+
+  const isAbsolute = redirectUrl.startsWith('http');
+  const linkLabel = isAbsolute ? redirectUrl.replace(/^https?:\/\//, '') : redirectUrl;
+  const primaryHref = misEntradasUrl ?? redirectUrl;
+  const primaryLabel = misEntradasUrl
+    ? 'Ver e imprimir mis entradas'
+    : isAbsolute
+      ? `Ir a ${linkLabel}`
+      : 'Ver mis entradas';
+
+  return (
+    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
+      <div className="max-w-lg w-full bg-black border border-[#cc0000] rounded-lg p-8 shadow-[0_4px_12px_#ff9999] text-center">
+        <div className="mb-6 text-5xl" aria-hidden>✓</div>
+        <h1 className="text-2xl font-bold text-white mb-2">Venta exitosa</h1>
+        <p className="text-gray-300 mb-6">
+          Tu pago se acreditó correctamente. Elige una opción:
+        </p>
+        {misEntradasUrl && (
+          <p className="text-sm text-slate-500 mb-4">
+            Haz clic en &quot;Ver e imprimir mis entradas&quot; en esta misma pestaña.
+          </p>
+        )}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
+          <Link
+            href={primaryHref}
+            className="inline-block bg-[#cc0000] hover:bg-[#b30000] text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+          >
+            {primaryLabel}
+          </Link>
+          <Link
+            href={redirectUrl}
+            className="inline-block border border-[#737373] hover:border-[#a6a6a6] text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+          >
+            Volver al inicio
+          </Link>
+          <Link
+            href="/entradas"
+            className="inline-block border border-[#737373] hover:border-[#a6a6a6] text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+          >
+            Comprar más entradas
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
+          <div className="max-w-lg w-full bg-black border border-[#cc0000] rounded-lg p-8 shadow-[0_4px_12px_#ff9999] text-center">
+            <div className="mb-6 text-5xl" aria-hidden>✓</div>
+            <h1 className="text-2xl font-bold text-white mb-2">Venta exitosa</h1>
+            <p className="text-gray-300 mb-6">Cargando...</p>
+          </div>
+        </main>
+      }
+    >
+      <SuccessContent />
+    </Suspense>
+  );
+}

@@ -79,6 +79,7 @@ export async function POST(request: Request) {
         ticket_type_id: requestedItems[0].ticket_type_id,
         quantity: requestedItems[0].quantity,
         payer_email: customer.email,
+        event_date: date,
       };
       const res = await fetch(`${baseUrl}/api/tickets/create-preference`, {
         method: 'POST',
@@ -111,10 +112,11 @@ export async function POST(request: Request) {
       );
     }
 
+    // Precio por día: daily_inventory para la fecha seleccionada (nunca confiar en cliente)
     for (const reqItem of requestedItems) {
       const { data: inventory, error: invError } = await supabase
         .from('inventory')
-        .select('id, total_capacity, ticket_types!inner(id, name, price), events!inner(id, name)')
+        .select('id, total_capacity, ticket_types!inner(id, name), events!inner(id, name)')
         .eq('event_id', eventId)
         .eq('ticket_type_id', reqItem.ticket_type_id)
         .single();
@@ -126,26 +128,22 @@ export async function POST(request: Request) {
         );
       }
 
-      const { count: ordersCount, error: ordersError } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('inventory_id', inventory.id)
-        .in('status', ['pending', 'paid']);
+      const { data: dailyRow, error: dailyErr } = await supabase
+        .from('daily_inventory')
+        .select('price')
+        .eq('event_day_id', eventDay.id)
+        .eq('ticket_type_id', reqItem.ticket_type_id)
+        .single();
 
-      if (ordersError) {
+      const dailyPrice = dailyErr ? 0 : Number((dailyRow as { price?: number })?.price ?? 0);
+      if (!Number.isFinite(dailyPrice) || dailyPrice <= 0) {
         return NextResponse.json(
-          { error: 'Error al validar stock' },
-          { status: 500 }
+          { error: 'Precio no configurado para esa fecha' },
+          { status: 400 }
         );
       }
-
-      const availableStock = inventory.total_capacity - (ordersCount || 0);
-      if (availableStock < reqItem.quantity) {
-        return NextResponse.json(
-          { error: 'Stock insuficiente para uno o más ítems' },
-          { status: 409 }
-        );
-      }
+      const unitPrice = Math.round(dailyPrice);
+      const amount = unitPrice * reqItem.quantity;
 
       const ticketTypesData = inventory.ticket_types;
       const ticketType = Array.isArray(ticketTypesData) ? ticketTypesData[0] : ticketTypesData;
@@ -155,15 +153,6 @@ export async function POST(request: Request) {
         ticketType && typeof ticketType === 'object' && 'name' in ticketType
           ? String(ticketType.name)
           : 'Entrada';
-      const priceRaw = Number((ticketType as { price?: number })?.price ?? 0);
-      const unitPrice = Math.round(priceRaw);
-      if (isNaN(unitPrice) || unitPrice <= 0) {
-        return NextResponse.json(
-          { error: 'Precio inválido en base de datos' },
-          { status: 500 }
-        );
-      }
-      const amount = unitPrice * reqItem.quantity;
       const title = `${name} - ${eventName}${reqItem.quantity > 1 ? ` (x${reqItem.quantity})` : ''}`;
 
       lineItems.push({
@@ -177,11 +166,45 @@ export async function POST(request: Request) {
     }
 
     const externalReference = crypto.randomUUID();
+
+    const pItems = lineItems.map((li) => ({
+      inventory_id: li.inventory_id,
+      quantity: li.quantity,
+      amount: li.amount,
+    }));
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('create_orders_atomic', {
+      p_external_reference: externalReference,
+      p_user_email: customer.email,
+      p_items: pItems,
+    });
+
+    if (rpcError) {
+      console.error('create_orders_atomic error:', rpcError);
+      return NextResponse.json(
+        { error: 'Error al reservar stock. Reintentar más tarde.' },
+        { status: 500 }
+      );
+    }
+
+    const result = rpcResult as { ok?: boolean; error?: string } | null;
+    if (!result?.ok) {
+      if (result?.error === 'stock_insufficient') {
+        return NextResponse.json(
+          { error: 'Stock insuficiente para uno o más ítems' },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json(
+        { error: result?.error || 'Error al reservar stock' },
+        { status: 409 }
+      );
+    }
+
     const baseUrl = getBaseUrlFromRequest(
       request,
       process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
     );
-    const successUrl = `${baseUrl}/success`;
+    const successUrl = `${baseUrl}/success?external_reference=${externalReference}`;
     const failureUrl = `${baseUrl}/failure`;
     const pendingUrl = `${baseUrl}/pending`;
 
@@ -202,6 +225,9 @@ export async function POST(request: Request) {
     const mpBody = {
       items: mpItems,
       payer: { email: customer.email },
+      payment_methods: {
+        excluded_payment_types: [{ id: 'account_money' }],
+      },
       back_urls: {
         success: successUrl,
         failure: failureUrl,
@@ -229,6 +255,7 @@ export async function POST(request: Request) {
       }
     } catch (mpError: unknown) {
       const err = mpError instanceof Error ? mpError : new Error(String(mpError));
+      await supabase.from('orders').delete().eq('external_reference', externalReference);
       const apiBody =
         mpError &&
         typeof mpError === 'object' &&
@@ -250,28 +277,6 @@ export async function POST(request: Request) {
         { error: message },
         { status: 502 }
       );
-    }
-
-    for (const li of lineItems) {
-      const { error: orderError } = await supabase.from('orders').insert({
-        external_reference: externalReference,
-        inventory_id: li.inventory_id,
-        user_email: customer.email,
-        amount: li.amount,
-        quantity: li.quantity,
-        status: 'pending',
-      });
-      if (orderError) {
-        console.error('Error al crear orden:', orderError);
-        const detail =
-          process.env.NODE_ENV !== 'production' && orderError?.message
-            ? orderError.message
-            : 'Error al registrar la orden';
-        return NextResponse.json(
-          { error: detail, code: orderError?.code ?? undefined },
-          { status: 500 }
-        );
-      }
     }
 
     return NextResponse.json({ init_point: initPoint });

@@ -1,0 +1,245 @@
+'use client';
+
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import useSWR from 'swr';
+import { TicketCard, type TicketCardData } from '@/components/TicketCardDynamic';
+import Link from 'next/link';
+
+const SESSION_STORAGE_KEY = 'mis_entradas_token';
+
+interface ByReferenceResponse {
+  external_reference: string;
+  buyer_email?: string | null;
+  orders: Array<{
+    order_id: string;
+    status: string;
+    tickets: Array<TicketCardData>;
+  }>;
+}
+
+async function fetcher(url: string): Promise<ByReferenceResponse> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? 'Error al cargar');
+  }
+  return res.json();
+}
+
+function SkeletonCard() {
+  return (
+    <div className="animate-pulse rounded-xl border-2 border-slate-600 bg-slate-800 p-6">
+      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+        <div className="h-40 w-40 flex-shrink-0 rounded-lg bg-slate-700" />
+        <div className="flex-1 space-y-3">
+          <div className="h-4 w-24 rounded bg-slate-700" />
+          <div className="h-6 w-32 rounded bg-slate-700" />
+          <div className="h-4 w-20 rounded bg-slate-700" />
+          <div className="h-5 w-48 rounded bg-slate-700" />
+        </div>
+      </div>
+      <div className="mt-4 h-12 w-full rounded-lg bg-slate-700" />
+    </div>
+  );
+}
+
+function MisEntradasContent() {
+  const searchParams = useSearchParams();
+  const tokenFromUrl = searchParams.get('token') ?? '';
+  const [effectiveToken, setEffectiveToken] = useState<string | null>(tokenFromUrl ? tokenFromUrl : null);
+  const [hasCheckedStorage, setHasCheckedStorage] = useState(false);
+
+  useEffect(() => {
+    if (tokenFromUrl) {
+      setHasCheckedStorage(true);
+      return;
+    }
+    const stored = typeof window !== 'undefined' ? window.sessionStorage.getItem(SESSION_STORAGE_KEY) : null;
+    if (stored) setEffectiveToken(stored);
+    setHasCheckedStorage(true);
+  }, [tokenFromUrl]);
+
+  const token = effectiveToken ?? '';
+  const tokenFromSessionStorage = Boolean(token && !tokenFromUrl);
+
+  const { data, error, isLoading, mutate } = useSWR<ByReferenceResponse>(
+    token ? `/api/orders/by-reference?token=${encodeURIComponent(token)}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      errorRetryCount: 3,
+      errorRetryInterval: 4000,
+    }
+  );
+
+  useEffect(() => {
+    if (data && tokenFromSessionStorage && typeof window !== 'undefined') {
+      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  }, [data, tokenFromSessionStorage]);
+
+  const allTickets: TicketCardData[] = data?.orders?.flatMap((o) => o.tickets) ?? [];
+  const pdfUrl = token
+    ? `/api/orders/by-reference/pdf?token=${encodeURIComponent(token)}`
+    : null;
+
+  if (!hasCheckedStorage) {
+    return (
+      <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-bold">Mis entradas</h1>
+            <p className="mt-1 text-slate-400">Cargando...</p>
+          </div>
+          <SkeletonCard />
+        </div>
+      </main>
+    );
+  }
+
+  if (!token) {
+    return (
+      <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
+        <div className="mx-auto max-w-2xl text-center">
+          <h1 className="text-2xl font-bold">Mis entradas</h1>
+          <p className="mt-2 text-slate-400">
+            Falta el enlace de acceso. Revisa el correo que te enviamos tras tu compra.
+          </p>
+          <Link
+            href="/entradas"
+            className="mt-6 inline-block rounded-lg bg-slate-700 px-6 py-3 font-semibold text-white transition hover:bg-slate-600"
+          >
+            Comprar entradas
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
+        <div className="mx-auto max-w-2xl text-center">
+          <h1 className="text-2xl font-bold text-red-400">Error al cargar</h1>
+          <p className="mt-2 text-slate-400">
+            No se pudieron cargar tus entradas. El enlace puede haber expirado (válido 7 días).
+          </p>
+          {tokenFromSessionStorage && (
+            <p className="mt-2 text-sm text-slate-500">
+              Si acabas de comprar, las entradas pueden tardar unos segundos. Prueba a reintentar.
+            </p>
+          )}
+          <div className="mt-6 flex flex-wrap gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => mutate()}
+              className="inline-block rounded-lg bg-[#cc0000] hover:bg-[#b30000] px-6 py-3 font-semibold text-white transition"
+            >
+              Reintentar
+            </button>
+            <Link
+              href="/entradas"
+              className="inline-block rounded-lg bg-slate-700 px-6 py-3 font-semibold text-white transition hover:bg-slate-600"
+            >
+              Ir a entradas
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-bold">Mis entradas</h1>
+            <p className="mt-1 text-slate-400">Cargando...</p>
+          </div>
+          <SkeletonCard />
+        </div>
+      </main>
+    );
+  }
+
+  if (!data || allTickets.length === 0) {
+    return (
+      <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
+        <div className="mx-auto max-w-2xl text-center">
+          <h1 className="text-2xl font-bold">Sin entradas</h1>
+          <p className="mt-2 text-slate-400">No se encontraron entradas para este enlace.</p>
+          <Link
+            href="/entradas"
+            className="mt-6 inline-block rounded-lg bg-slate-700 px-6 py-3 font-semibold text-white transition hover:bg-slate-600"
+          >
+            Ir a entradas
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
+      <div className="mx-auto max-w-2xl">
+        <div className="mb-8 text-center">
+          <h1 className="text-2xl font-bold">Mis entradas</h1>
+          <p className="mt-1 text-slate-400">
+            {allTickets.length} entrada{allTickets.length !== 1 ? 's' : ''} · Compra{' '}
+            {data.external_reference.slice(0, 8)}…
+          </p>
+        </div>
+
+        {pdfUrl && (
+          <div className="mb-8 flex justify-center">
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded-lg bg-[#cc0000] px-6 py-3 font-semibold text-white transition hover:bg-[#b30000]"
+            >
+              Descargar PDF (todas las entradas)
+            </a>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-8">
+          {allTickets.map((ticket) => (
+            <TicketCard key={ticket.uuid} ticket={ticket} />
+          ))}
+        </div>
+
+        <div className="mt-8 text-center">
+          <Link
+            href="/entradas"
+            className="inline-block rounded-lg border border-slate-600 px-6 py-3 font-semibold text-white transition hover:border-slate-500"
+          >
+            Comprar más entradas
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+export default function MisEntradasPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
+          <div className="mx-auto max-w-2xl">
+            <div className="mb-8 text-center">
+              <h1 className="text-2xl font-bold">Mis entradas</h1>
+              <p className="mt-1 text-slate-400">Cargando...</p>
+            </div>
+            <SkeletonCard />
+          </div>
+        </main>
+      }
+    >
+      <MisEntradasContent />
+    </Suspense>
+  );
+}

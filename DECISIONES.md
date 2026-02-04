@@ -2,6 +2,12 @@
 
 ## REGLAS CRÍTICAS PERMANENTES
 
+### 0. Regla de oro — Fase estética (LA MÁS IMPORTANTE)
+- **Los cambios estéticos no pueden modificar código que afecte al sistema.**
+- Sistema = flujo de pago, APIs, webhooks, tokens, seguridad, órdenes, tickets, Supabase, Mercado Pago.
+- Estética = solo CSS, textos, imágenes, layout visual; sin tocar lógica ni rutas API ni flujos críticos.
+- Vigente desde 2026-02-03; módulo Entradas/Tickets 100% operativo confirmado.
+
 ### 1. Página Principal
 - **Archivo protegido:** `src/app/page.tsx` y `src/components/pantalla-inicio/PantallaInicio.tsx`
 - **Regla:** NO modificar sin doble verificación/autorización explícita del usuario

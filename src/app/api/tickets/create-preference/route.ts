@@ -1,5 +1,5 @@
 import { requireMercadoPagoClient } from '@/lib/mercadopago';
-import { requireSupabaseClient } from '@/lib/supabase';
+import { requireSupabaseAdmin } from '@/lib/supabase';
 import { CreatePreferenceSchema } from '@/lib/schemas';
 import { getBaseUrlFromRequest } from '@/lib/base-url';
 import { NextResponse } from 'next/server';
@@ -21,10 +21,97 @@ export async function POST(request: Request) {
       );
     }
 
-    const { event_id, ticket_type_id, quantity, payer_email } = validationResult.data;
+    const { event_id, ticket_type_id, quantity, payer_email, event_date } = validationResult.data;
     const normalizedQuantity = Math.max(1, Math.min(8, quantity));
 
-    const supabase = requireSupabaseClient();
+    const supabase = requireSupabaseAdmin();
+
+    // Precio: si viene event_date, usar daily_inventory (precio del día); si no, ticket_types (fallback). Siempre servidor, nunca cliente.
+    let unitPrice: number;
+    if (event_date) {
+      const { data: eventDay, error: dayErr } = await supabase
+        .from('event_days')
+        .select('id')
+        .eq('event_id', event_id)
+        .eq('event_date', event_date)
+        .single();
+      if (dayErr || !eventDay) {
+        if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+        return NextResponse.json(
+          { error: 'No se encontró evento para esa fecha' },
+          { status: 404 }
+        );
+      }
+      const { data: dailyRow, error: dailyErr } = await supabase
+        .from('daily_inventory')
+        .select('price')
+        .eq('event_day_id', eventDay.id)
+        .eq('ticket_type_id', ticket_type_id)
+        .single();
+      const dailyPrice = dailyErr ? 0 : Number((dailyRow as { price?: number })?.price ?? 0);
+      if (!Number.isFinite(dailyPrice) || dailyPrice <= 0) {
+        if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+        return NextResponse.json(
+          { error: 'Precio no configurado para esa fecha' },
+          { status: 400 }
+        );
+      }
+      unitPrice = Math.round(dailyPrice);
+    } else {
+      // Sin fecha: precio desde ticket_types (flujo /tickets u otros)
+      const { data: inventory, error: inventoryError } = await supabase
+        .from('inventory')
+        .select('id, total_capacity, ticket_types!inner(id, name, price), events!inner(id, name)')
+        .eq('event_id', event_id)
+        .eq('ticket_type_id', ticket_type_id)
+        .single();
+      if (inventoryError || !inventory) {
+        if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+        return NextResponse.json(
+          { error: 'No se encontró el tipo de ticket para este evento' },
+          { status: 404 }
+        );
+      }
+      const ticketTypesData = inventory.ticket_types;
+      const ticketType = Array.isArray(ticketTypesData) ? ticketTypesData[0] : ticketTypesData;
+      const priceRaw = Number((ticketType as { price?: number })?.price ?? 0);
+      if (!Number.isFinite(priceRaw) || priceRaw <= 0) {
+        if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+        return NextResponse.json(
+          { error: 'Precio inválido en base de datos' },
+          { status: 500 }
+        );
+      }
+      unitPrice = Math.round(priceRaw);
+    }
+
+    // inventory (id, name, events) para RPC y título MP
+    const { data: inventory, error: inventoryError } = await supabase
+      .from('inventory')
+      .select('id, total_capacity, ticket_types!inner(id, name), events!inner(id, name)')
+      .eq('event_id', event_id)
+      .eq('ticket_type_id', ticket_type_id)
+      .single();
+
+    if (inventoryError || !inventory) {
+      if (idempotencyKey) {
+        await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+      }
+      return NextResponse.json(
+        { error: 'No se encontró el tipo de ticket para este evento' },
+        { status: 404 }
+      );
+    }
+
+    const ticketTypesData = inventory.ticket_types;
+    const ticketType = Array.isArray(ticketTypesData) ? ticketTypesData[0] : ticketTypesData;
+    const ticketTypeName =
+      ticketType && typeof ticketType === 'object' && 'name' in ticketType
+        ? String(ticketType.name)
+        : 'Ticket';
+
+    const totalAmount = unitPrice * normalizedQuantity;
+    const externalReference = randomUUID();
 
     // Idempotencia: si hay clave y ya existe resultado válido, devolverlo
     if (idempotencyKey) {
@@ -75,73 +162,36 @@ export async function POST(request: Request) {
       }
     }
 
-    // 1. Obtener inventory y validar stock
-    const { data: inventory, error: inventoryError } = await supabase
-      .from('inventory')
-      .select('id, total_capacity, ticket_types!inner(id, name, price), events!inner(id, name)')
-      .eq('event_id', event_id)
-      .eq('ticket_type_id', ticket_type_id)
-      .single();
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('create_orders_atomic', {
+      p_external_reference: externalReference,
+      p_user_email: payer_email,
+      p_items: [{ inventory_id: inventory.id, quantity: normalizedQuantity, amount: totalAmount }],
+    });
 
-    if (inventoryError || !inventory) {
-      if (idempotencyKey) {
-        await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
-      }
-      return NextResponse.json(
-        { error: 'No se encontró el tipo de ticket para este evento' },
-        { status: 404 }
-      );
-    }
-
-    const { count: ordersCount, error: ordersError } = await supabase
-      .from('orders')
-      .select('*', { count: 'exact', head: true })
-      .eq('inventory_id', inventory.id)
-      .in('status', ['pending', 'paid']);
-
-    if (ordersError) {
+    if (rpcError) {
       if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+      console.error('create_orders_atomic error:', rpcError);
       return NextResponse.json(
-        { error: 'Error al validar stock disponible' },
+        { error: 'Error al reservar stock. Reintentar más tarde.' },
         { status: 500 }
       );
     }
 
-    const availableStock = inventory.total_capacity - (ordersCount || 0);
-    if (availableStock < normalizedQuantity) {
+    const result = rpcResult as { ok?: boolean; error?: string } | null;
+    if (!result?.ok) {
       if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
+      if (result?.error === 'stock_insufficient') {
+        return NextResponse.json(
+          { error: 'Stock insuficiente. Reintentar más tarde.' },
+          { status: 409 }
+        );
+      }
       return NextResponse.json(
-        { error: `Stock insuficiente. Disponible: ${availableStock}, Solicitado: ${normalizedQuantity}` },
+        { error: result?.error || 'Error al reservar stock' },
         { status: 409 }
       );
     }
 
-    const ticketTypesData = inventory.ticket_types;
-    const ticketType = Array.isArray(ticketTypesData) ? ticketTypesData[0] : ticketTypesData;
-    if (!ticketType || typeof ticketType !== 'object' || !('price' in ticketType)) {
-      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
-      return NextResponse.json(
-        { error: 'Error al obtener información del tipo de ticket' },
-        { status: 500 }
-      );
-    }
-
-    const unitPriceRaw = Number(ticketType.price);
-    if (isNaN(unitPriceRaw) || unitPriceRaw <= 0) {
-      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
-      return NextResponse.json(
-        { error: 'Precio inválido en base de datos' },
-        { status: 500 }
-      );
-    }
-    // CLP: entero para evitar errores de redondeo en MP
-    const unitPrice = Math.round(unitPriceRaw);
-
-    const totalAmount = unitPrice * normalizedQuantity;
-    const externalReference = randomUUID();
-
-    // 2. Crear preferencia en Mercado Pago primero (evita órdenes huérfanas)
-    const { preferenceClient } = requireMercadoPagoClient();
     const baseUrl = getBaseUrlFromRequest(
       request,
       process.env.NEXT_PUBLIC_BASE_URL || 'https://www.festivalpucon.cl'
@@ -153,13 +203,10 @@ export async function POST(request: Request) {
       event && typeof event === 'object' && 'name' in event
         ? String(event.name)
         : 'Festival Pucón 2026';
-    const ticketTypeName =
-      ticketType && typeof ticketType === 'object' && 'name' in ticketType
-        ? String(ticketType.name)
-        : 'Ticket';
 
     let initPoint: string;
     try {
+      const { preferenceClient } = requireMercadoPagoClient();
       const created = await preferenceClient.create({
         body: {
           items: [
@@ -172,6 +219,9 @@ export async function POST(request: Request) {
             },
           ],
           payer: { email: payer_email },
+          payment_methods: {
+            excluded_payment_types: [{ id: 'account_money' }],
+          },
           back_urls: {
             success: `${baseUrl}/success`,
             failure: `${baseUrl}/failure`,
@@ -197,31 +247,11 @@ export async function POST(request: Request) {
       }
     } catch (mpError) {
       console.error('Error al crear preferencia en Mercado Pago:', mpError);
+      await supabase.from('orders').delete().eq('external_reference', externalReference);
       if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
       return NextResponse.json(
         { error: 'Error al crear la sesión de pago. Reintentar más tarde.' },
         { status: 502 }
-      );
-    }
-
-    // 3. Insertar orden en BD solo después de tener init_point
-    const { error: orderError } = await supabase
-      .from('orders')
-      .insert({
-        external_reference: externalReference,
-        inventory_id: inventory.id,
-        user_email: payer_email,
-        amount: totalAmount,
-        quantity: normalizedQuantity,
-        status: 'pending',
-      });
-
-    if (orderError) {
-      console.error('Error al crear orden:', orderError);
-      if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
-      return NextResponse.json(
-        { error: 'Error al crear la orden en base de datos' },
-        { status: 500 }
       );
     }
 

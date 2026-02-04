@@ -1,14 +1,18 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { TicketCard, type TicketCardData } from '@/components/TicketCardDynamic';
 import Link from 'next/link';
 
+const SESSION_STORAGE_KEY = 'mis_entradas_token';
+
 interface ByReferenceResponse {
   external_reference: string;
   buyer_email?: string | null;
+  /** true cuando el pago está en proceso (órdenes pending) */
+  pending?: boolean;
   orders: Array<{
     order_id: string;
     status: string;
@@ -44,18 +48,56 @@ function SkeletonCard() {
 
 function MisEntradasContent() {
   const searchParams = useSearchParams();
-  const token = searchParams.get('token') ?? '';
+  const tokenFromUrl = searchParams.get('token') ?? '';
+  const [effectiveToken, setEffectiveToken] = useState<string | null>(tokenFromUrl ? tokenFromUrl : null);
+  const [hasCheckedStorage, setHasCheckedStorage] = useState(false);
 
-  const { data, error, isLoading } = useSWR<ByReferenceResponse>(
+  useEffect(() => {
+    if (tokenFromUrl) {
+      setHasCheckedStorage(true);
+      return;
+    }
+    const stored = typeof window !== 'undefined' ? window.sessionStorage.getItem(SESSION_STORAGE_KEY) : null;
+    if (stored) setEffectiveToken(stored);
+    setHasCheckedStorage(true);
+  }, [tokenFromUrl]);
+
+  const token = effectiveToken ?? '';
+  const tokenFromSessionStorage = Boolean(token && !tokenFromUrl);
+
+  const [pollingInterval, setPollingInterval] = useState(0);
+  const { data, error, isLoading, mutate } = useSWR<ByReferenceResponse>(
     token ? `/api/orders/by-reference?token=${encodeURIComponent(token)}` : null,
     fetcher,
-    { revalidateOnFocus: false }
+    {
+      revalidateOnFocus: false,
+      errorRetryCount: 3,
+      errorRetryInterval: 4000,
+      refreshInterval: pollingInterval,
+    }
   );
+  useEffect(() => {
+    setPollingInterval(data?.pending ? 6000 : 0);
+  }, [data?.pending]);
 
   const allTickets: TicketCardData[] = data?.orders?.flatMap((o) => o.tickets) ?? [];
   const pdfUrl = token
     ? `/api/orders/by-reference/pdf?token=${encodeURIComponent(token)}`
     : null;
+
+  if (!hasCheckedStorage) {
+    return (
+      <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-bold">Mis entradas</h1>
+            <p className="mt-1 text-slate-400">Cargando...</p>
+          </div>
+          <SkeletonCard />
+        </div>
+      </main>
+    );
+  }
 
   if (!token) {
     return (
@@ -76,6 +118,34 @@ function MisEntradasContent() {
     );
   }
 
+  if (data?.pending) {
+    return (
+      <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
+        <div className="mx-auto max-w-2xl text-center">
+          <h1 className="text-2xl font-bold text-amber-400">Procesando tu pago</h1>
+          <p className="mt-2 text-slate-400">
+            Tu compra está siendo confirmada. En unos segundos podrás ver tus entradas.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => mutate()}
+              className="inline-block rounded-lg bg-[#cc0000] hover:bg-[#b30000] px-6 py-3 font-semibold text-white transition"
+            >
+              Reintentar
+            </button>
+            <Link
+              href="/entradas"
+              className="inline-block rounded-lg bg-slate-700 px-6 py-3 font-semibold text-white transition hover:bg-slate-600"
+            >
+              Ir a entradas
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   if (error) {
     return (
       <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
@@ -84,12 +154,26 @@ function MisEntradasContent() {
           <p className="mt-2 text-slate-400">
             No se pudieron cargar tus entradas. El enlace puede haber expirado (válido 7 días).
           </p>
-          <Link
-            href="/entradas"
-            className="mt-6 inline-block rounded-lg bg-slate-700 px-6 py-3 font-semibold text-white transition hover:bg-slate-600"
-          >
-            Ir a entradas
-          </Link>
+          {tokenFromSessionStorage && (
+            <p className="mt-2 text-sm text-slate-500">
+              Si acabas de comprar, las entradas pueden tardar unos segundos. Prueba a reintentar.
+            </p>
+          )}
+          <div className="mt-6 flex flex-wrap gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => mutate()}
+              className="inline-block rounded-lg bg-[#cc0000] hover:bg-[#b30000] px-6 py-3 font-semibold text-white transition"
+            >
+              Reintentar
+            </button>
+            <Link
+              href="/entradas"
+              className="inline-block rounded-lg bg-slate-700 px-6 py-3 font-semibold text-white transition hover:bg-slate-600"
+            >
+              Ir a entradas
+            </Link>
+          </div>
         </div>
       </main>
     );

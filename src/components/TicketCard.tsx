@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { TicketCardData } from '@/types/ticket';
 
 const CATEGORY_STYLES: Record<string, { bg: string; border: string; text: string }> = {
@@ -23,8 +23,22 @@ interface TicketCardProps {
 
 export function TicketCard({ ticket }: TicketCardProps) {
   const [copied, setCopied] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const style = getCategoryStyle(ticket.category);
   const isFamiliar = /familiar/i.test(ticket.category.trim());
+
+  useEffect(() => {
+    let cancelled = false;
+    import('qrcode')
+      .then((QRCode) => QRCode.toDataURL(ticket.qr_token, { width: 200, margin: 1 }))
+      .then((url) => {
+        if (!cancelled) setQrDataUrl(url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [ticket.qr_token]);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(ticket.qr_token).then(
@@ -43,8 +57,19 @@ export function TicketCard({ ticket }: TicketCardProps) {
       >
         <div className="flex flex-col gap-4">
           <div className="rounded-lg bg-white p-3 text-center">
-            <p className="text-xs font-medium opacity-80">Código de entrada (QR en tu PDF)</p>
-            <p className="mt-1 font-mono text-sm break-all select-all">{ticket.qr_token}</p>
+            <p className="text-xs font-medium opacity-80">Código de entrada</p>
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt="QR de la entrada"
+                className="mx-auto mt-2 h-40 w-40 rounded border border-slate-200"
+                width={200}
+                height={200}
+              />
+            ) : (
+              <div className="mx-auto mt-2 h-40 w-40 animate-pulse rounded bg-slate-200" aria-hidden />
+            )}
+            <p className="mt-2 text-xs font-mono break-all select-all opacity-80">{ticket.qr_token}</p>
             <button
               type="button"
               onClick={handleCopy}

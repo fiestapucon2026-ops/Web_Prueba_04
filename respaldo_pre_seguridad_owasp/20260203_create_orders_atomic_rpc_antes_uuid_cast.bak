@@ -1,0 +1,77 @@
+-- RPC atómica para crear órdenes con reserva de stock (evita condición de carrera).
+-- p_items: JSONB array de { inventory_id, quantity, amount }.
+-- Retorna { ok: true, order_ids: [...] } o { ok: false, error: "..." }.
+
+CREATE OR REPLACE FUNCTION public.create_orders_atomic(
+  p_external_reference TEXT,
+  p_user_email TEXT,
+  p_items JSONB
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  item JSONB;
+  v_inventory_id UUID;
+  v_quantity INT;
+  v_amount BIGINT;
+  v_cap INT;
+  v_sold BIGINT;
+  v_order_id UUID;
+  v_order_ids UUID[] := '{}';
+BEGIN
+  IF p_items IS NULL OR jsonb_array_length(p_items) = 0 THEN
+    RETURN json_build_object('ok', false, 'error', 'items_required');
+  END IF;
+
+  -- Bloquear filas de inventario y validar stock
+  FOR item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    v_inventory_id := (item->>'inventory_id')::UUID;
+    v_quantity := (item->>'quantity')::INT;
+    v_amount := COALESCE((item->>'amount')::BIGINT, 0);
+    IF v_quantity IS NULL OR v_quantity < 1 THEN
+      RAISE EXCEPTION 'invalid_quantity';
+    END IF;
+
+    SELECT total_capacity INTO v_cap FROM inventory WHERE id = v_inventory_id FOR UPDATE;
+    IF v_cap IS NULL THEN
+      RAISE EXCEPTION 'inventory_not_found';
+    END IF;
+
+    SELECT COALESCE(SUM(quantity), 0)::BIGINT INTO v_sold FROM orders
+    WHERE inventory_id = v_inventory_id AND status IN ('pending', 'paid');
+    IF v_sold + v_quantity > v_cap THEN
+      RAISE EXCEPTION 'stock_insufficient';
+    END IF;
+  END LOOP;
+
+  -- Insertar órdenes
+  FOR item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    INSERT INTO orders (external_reference, inventory_id, user_email, amount, quantity, status)
+    VALUES (
+      p_external_reference,
+      (item->>'inventory_id')::UUID,
+      p_user_email,
+      COALESCE((item->>'amount')::BIGINT, 0),
+      (item->>'quantity')::INT,
+      'pending'
+    )
+    RETURNING id INTO v_order_id;
+    v_order_ids := array_append(v_order_ids, v_order_id);
+  END LOOP;
+
+  RETURN json_build_object('ok', true, 'order_ids', v_order_ids);
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN json_build_object('ok', false, 'error', SQLERRM);
+END;
+$$;
+
+-- Solo service_role debe poder ejecutar (revocar anon/authenticated si se concedió por defecto)
+REVOKE EXECUTE ON FUNCTION public.create_orders_atomic(TEXT, TEXT, JSONB) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.create_orders_atomic(TEXT, TEXT, JSONB) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.create_orders_atomic(TEXT, TEXT, JSONB) TO service_role;

@@ -45,6 +45,12 @@
 - ✅ PATCH atómico vía RPC `admin_update_daily_inventory`
 - ⛔ **Cualquier cambio en este módulo requiere DOBLE RATIFICACIÓN** (ver `PROMPT_NUEVO_CHAT_MODULO_ADMIN_SEGURIDAD.md`)
 
+### Módulo Entradas / Tickets QR — 100% OPERATIVO (CONFIRMADO 2026-02-03)
+- ✅ Deploy a www.festivalpucon.cl operativo
+- ✅ Compra de prueba: Success → Mis entradas → tickets con QR visibles e imprimibles
+- ✅ Fallback vía `by-reference` + búsqueda MP + `processApprovedOrder` funciona
+- **Fase actual:** Solo aspectos **estéticos**. **Regla de oro:** Los cambios estéticos NO pueden modificar código que afecte al sistema (APIs, webhooks, flujo de pago, tokens, seguridad). Ver `.cursorrules` e `INSTRUCCIONES_PARA_SIGUIENTE_CHAT_FINAL.md`.
+
 ---
 
 ## ⏳ Pendiente (Requiere Acción Manual)
@@ -52,18 +58,16 @@
 ### Vercel
 - [x] Proyecto Vercel creado y enlazado a GitHub
 - [x] Variables de entorno configuradas (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `NEXT_PUBLIC_BASE_URL`, etc.)
-- [ ] Verificar que `/api/tickets/types` y flujo MP funcionan en Preview/Producción
+- [x] Flujo MP y Mis entradas verificados en producción (www.festivalpucon.cl)
 
 ### Mercado Pago
-- [ ] Configurar webhook URL en panel de MP
-- [ ] URL: `https://<preview-url>/api/webhooks/mercadopago`
-- [ ] Seleccionar evento "payment"
+- [x] Webhook URL configurada: `https://www.festivalpucon.cl/api/webhooks/mercadopago`
+- [x] Evento "payment" seleccionado
 
-### Primera Prueba
-- [ ] Probar flujo completo de compra
-- [ ] Verificar webhook recibido
-- [ ] Verificar orden en Supabase
-- [ ] Verificar email (si Resend configurado)
+### Prueba de compra
+- [x] Flujo completo de compra probado
+- [x] Mis entradas muestra tickets con QR (fallback operativo)
+- [ ] Opcional: configurar `RESEND_API_KEY` en Vercel para envío de tickets por email
 
 ---
 
@@ -116,4 +120,4 @@
 
 ---
 
-**Última actualización:** Módulo Admin/Seguridad terminado y documentado (2026-01-31). Doble ratificación requerida para cambios en Admin.
+**Última actualización:** Módulo Entradas/Tickets QR 100% operativo confirmado (2026-02-03). Fase actual: aspectos estéticos. Regla de oro: cambios estéticos no pueden modificar código que afecte al sistema (ver `.cursorrules`).

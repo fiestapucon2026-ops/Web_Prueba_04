@@ -13,6 +13,8 @@ export const CreatePreferenceSchema = z.object({
     .positive('quantity debe ser positivo')
     .max(8, 'quantity máximo es 8'),
   payer_email: z.string().email('payer_email debe ser un email válido'),
+  /** Opcional: fecha del evento (YYYY-MM-DD). Si se envía, el precio se toma de daily_inventory (precio del día). */
+  event_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 // Schema para validación de email

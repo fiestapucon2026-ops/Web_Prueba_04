@@ -4,17 +4,28 @@ import { sendPurchaseEmail, type PurchaseItemSummary } from '@/lib/email';
 import { createAccessToken } from '@/lib/security/access-token';
 import { NextResponse } from 'next/server';
 import type { OrderWithDetails } from '@/lib/types';
+import crypto from 'crypto';
 
 const MAX_ATTEMPTS = 3;
 const BUCKET = 'tickets';
 
+/** Comparación timing-safe para evitar timing attacks sobre CRON_SECRET. */
 function verifyCronSecret(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
   const auth = request.headers.get('authorization');
-  const bearer = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
-  const headerSecret = request.headers.get('x-cron-secret');
-  return (bearer !== null && bearer === secret) || headerSecret === secret;
+  const bearer = auth?.startsWith('Bearer ') ? auth.slice(7).trim() : null;
+  const headerSecret = request.headers.get('x-cron-secret')?.trim() ?? null;
+  const toCheck = bearer ?? headerSecret;
+  if (!toCheck) return false;
+  try {
+    const secretBuf = Buffer.from(secret, 'utf8');
+    const checkBuf = Buffer.from(toCheck, 'utf8');
+    if (secretBuf.length !== checkBuf.length) return false;
+    return crypto.timingSafeEqual(secretBuf, checkBuf);
+  } catch {
+    return false;
+  }
 }
 
 interface JobPayload {
