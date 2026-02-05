@@ -14,6 +14,7 @@ export default function ScannerPageV2() {
   const [lastResult, setLastResult] = useState<{ valid: boolean; msg: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [notification, setNotification] = useState<Notif>(null);
+  const [lastRawDecoded, setLastRawDecoded] = useState<string | null>(null);
 
   const checkAuth = useCallback(async () => {
     setLoading(true);
@@ -35,26 +36,37 @@ export default function ScannerPageV2() {
     checkAuth();
   }, [checkAuth]);
 
+  const UUID_STRICT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const UUID_MATCH = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
   const handleValidation = useCallback(
-    async (uuid: string) => {
+    async (raw: string) => {
       if (isProcessing) return;
       setIsProcessing(true);
       setLastResult(null);
       setNotification(null);
 
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(uuid)) {
+      const trimmed = raw.trim().replace(/\s+/g, '');
+      let uuid = trimmed;
+      if (!UUID_STRICT.test(uuid)) {
+        const extracted = trimmed.match(UUID_MATCH)?.[0];
+        if (extracted) uuid = extracted;
+      }
+      if (!UUID_STRICT.test(uuid)) {
+        console.warn('[ScannerV2] QR decodificado no es UUID. Raw:', JSON.stringify(raw));
+        setLastRawDecoded(raw.length > 80 ? raw.slice(0, 80) + '…' : raw);
         setNotification({ type: 'error', message: 'Formato QR inválido (No es UUID)' });
         setIsProcessing(false);
         return;
       }
+      setLastRawDecoded(null);
 
       try {
         const res = await fetch('/api/admin/tickets/validate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ qr_uuid: uuid }),
+          body: JSON.stringify({ qr_uuid: uuid.trim() }),
         });
 
         const data = (await res.json()) as { valid?: boolean; message?: string };
@@ -86,6 +98,7 @@ export default function ScannerPageV2() {
   const resetScanner = useCallback(() => {
     setLastResult(null);
     setNotification(null);
+    setLastRawDecoded(null);
     setIsProcessing(false);
   }, []);
 
@@ -181,6 +194,9 @@ export default function ScannerPageV2() {
           }`}
         >
           {notification.message}
+          {notification.type === 'error' && lastRawDecoded && (
+            <p className="mt-2 text-xs font-mono break-all opacity-90">Leído: {lastRawDecoded}</p>
+          )}
         </div>
       )}
 
