@@ -1,0 +1,287 @@
+import { requireSupabaseAdmin } from '@/lib/supabase';
+import { requireMercadoPagoClient } from '@/lib/mercadopago';
+import { getBaseUrlFromRequest } from '@/lib/base-url';
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import crypto from 'crypto';
+
+const ItemSchema = z.object({
+  ticket_type_id: z.string().uuid(),
+  quantity: z.number().int().min(1).max(8),
+});
+
+const EntradasCreatePreferenceSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date YYYY-MM-DD'),
+  items: z.array(ItemSchema).min(1, 'Al menos un ítem'),
+  customer: z.object({
+    email: z.string().email(),
+  }),
+});
+
+type LineItem = {
+  inventory_id: string;
+  ticket_type_id: string;
+  title: string;
+  unit_price: number;
+  quantity: number;
+  amount: number;
+};
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const validation = EntradasCreatePreferenceSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Datos inválidos', details: validation.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const { date, items: requestedItems, customer } = validation.data;
+    const supabase = requireSupabaseAdmin();
+
+    const { data: eventDay, error: dayError } = await supabase
+      .from('event_days')
+      .select('id, event_id')
+      .eq('event_date', date)
+      .single();
+
+    if (dayError || !eventDay) {
+      return NextResponse.json(
+        { error: 'No hay evento para esa fecha' },
+        { status: 404 }
+      );
+    }
+
+    const eventId = (eventDay as { event_id: string | null }).event_id;
+    if (!eventId) {
+      return NextResponse.json(
+        { error: 'event_day sin event_id; ejecutar seed' },
+        { status: 503 }
+      );
+    }
+
+    const lineItems: LineItem[] = [];
+    const eventName = 'Festival Pucón 2026';
+
+    // Un solo ítem: delegar en el módulo de tickets (flujo 100% operativo). Evita regresión 502.
+    if (requestedItems.length === 1) {
+      const baseUrl = getBaseUrlFromRequest(
+        request,
+        process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+      );
+      const slot = Math.floor(Date.now() / 60000);
+      const raw = `${date}|${requestedItems[0].ticket_type_id}|${customer.email}|${slot}`;
+      const idempotencyKey = crypto.createHash('sha256').update(raw).digest('base64url').slice(0, 64);
+      const payload = {
+        event_id: eventId,
+        ticket_type_id: requestedItems[0].ticket_type_id,
+        quantity: requestedItems[0].quantity,
+        payer_email: customer.email,
+        event_date: date,
+      };
+      const res = await fetch(`${baseUrl}/api/tickets/create-preference`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message =
+          typeof data?.error === 'string'
+            ? data.error
+            : data?.error && typeof data.error === 'object' && 'message' in data.error
+              ? String((data.error as { message?: unknown }).message)
+              : 'Error al crear la sesión de pago. Reintentar más tarde.';
+        return NextResponse.json(
+          { error: message },
+          { status: res.status >= 400 ? res.status : 502 }
+        );
+      }
+      const init = data?.init_point;
+      if (typeof init === 'string' && init) {
+        return NextResponse.json({ init_point: init });
+      }
+      return NextResponse.json(
+        { error: 'No se recibió enlace de pago' },
+        { status: 502 }
+      );
+    }
+
+    // Precio por día: daily_inventory para la fecha seleccionada (nunca confiar en cliente)
+    for (const reqItem of requestedItems) {
+      const { data: inventory, error: invError } = await supabase
+        .from('inventory')
+        .select('id, total_capacity, ticket_types!inner(id, name), events!inner(id, name)')
+        .eq('event_id', eventId)
+        .eq('ticket_type_id', reqItem.ticket_type_id)
+        .single();
+
+      if (invError || !inventory) {
+        return NextResponse.json(
+          { error: `No se encontró inventario para tipo ${reqItem.ticket_type_id}` },
+          { status: 404 }
+        );
+      }
+
+      const { data: dailyRow, error: dailyErr } = await supabase
+        .from('daily_inventory')
+        .select('price')
+        .eq('event_day_id', eventDay.id)
+        .eq('ticket_type_id', reqItem.ticket_type_id)
+        .single();
+
+      const dailyPrice = dailyErr ? 0 : Number((dailyRow as { price?: number })?.price ?? 0);
+      if (!Number.isFinite(dailyPrice) || dailyPrice <= 0) {
+        return NextResponse.json(
+          { error: 'Precio no configurado para esa fecha' },
+          { status: 400 }
+        );
+      }
+      const unitPrice = Math.round(dailyPrice);
+      const amount = unitPrice * reqItem.quantity;
+
+      const ticketTypesData = inventory.ticket_types;
+      const ticketType = Array.isArray(ticketTypesData) ? ticketTypesData[0] : ticketTypesData;
+      const eventsData = inventory.events;
+      const event = Array.isArray(eventsData) ? eventsData[0] : eventsData;
+      const name =
+        ticketType && typeof ticketType === 'object' && 'name' in ticketType
+          ? String(ticketType.name)
+          : 'Entrada';
+      const title = `${name} - ${eventName}${reqItem.quantity > 1 ? ` (x${reqItem.quantity})` : ''}`;
+
+      lineItems.push({
+        inventory_id: inventory.id,
+        ticket_type_id: reqItem.ticket_type_id,
+        title,
+        unit_price: unitPrice,
+        quantity: reqItem.quantity,
+        amount,
+      });
+    }
+
+    const externalReference = crypto.randomUUID();
+
+    const pItems = lineItems.map((li) => ({
+      inventory_id: li.inventory_id,
+      quantity: li.quantity,
+      amount: li.amount,
+    }));
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('create_orders_atomic', {
+      p_external_reference: externalReference,
+      p_user_email: customer.email,
+      p_items: pItems,
+    });
+
+    if (rpcError) {
+      console.error('create_orders_atomic error:', rpcError);
+      return NextResponse.json(
+        { error: 'Error al reservar stock. Reintentar más tarde.' },
+        { status: 500 }
+      );
+    }
+
+    const result = rpcResult as { ok?: boolean; error?: string } | null;
+    if (!result?.ok) {
+      if (result?.error === 'stock_insufficient') {
+        return NextResponse.json(
+          { error: 'Stock insuficiente para uno o más ítems' },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json(
+        { error: result?.error || 'Error al reservar stock' },
+        { status: 409 }
+      );
+    }
+
+    const baseUrl = getBaseUrlFromRequest(
+      request,
+      process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    );
+    const successUrl = `${baseUrl}/success?external_reference=${externalReference}`;
+    const failureUrl = `${baseUrl}/failure`;
+    const pendingUrl = `${baseUrl}/pending`;
+
+    const { preferenceClient } = requireMercadoPagoClient();
+    const mpItems = lineItems.map((li) => ({
+      id: li.ticket_type_id,
+      title: li.title,
+      quantity: li.quantity,
+      unit_price: li.unit_price,
+      currency_id: 'CLP' as const,
+    }));
+
+    let initPoint: string;
+    const isProduction =
+      baseUrl.startsWith('https://') &&
+      !baseUrl.includes('localhost') &&
+      /festivalpucon/i.test(baseUrl);
+    const mpBody = {
+      items: mpItems,
+      payer: { email: customer.email },
+      back_urls: {
+        success: successUrl,
+        failure: failureUrl,
+        pending: pendingUrl,
+      },
+      notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+      external_reference: externalReference,
+      ...(isProduction ? { auto_return: 'approved' as const } : {}),
+    };
+    try {
+      const created = await preferenceClient.create({
+        body: mpBody,
+      });
+      const accessToken = process.env.MP_ACCESS_TOKEN ?? '';
+      const sandboxUrl =
+        typeof (created as { sandbox_init_point?: string }).sandbox_init_point === 'string'
+          ? (created as { sandbox_init_point: string }).sandbox_init_point.trim()
+          : '';
+      if (accessToken.startsWith('TEST-') && sandboxUrl.length > 0) {
+        initPoint = sandboxUrl;
+      } else if (typeof created.init_point === 'string' && created.init_point.trim().length > 0) {
+        initPoint = created.init_point.trim();
+      } else {
+        throw new Error('Mercado Pago no devolvió init_point ni sandbox_init_point válido');
+      }
+    } catch (mpError: unknown) {
+      const err = mpError instanceof Error ? mpError : new Error(String(mpError));
+      await supabase.from('orders').delete().eq('external_reference', externalReference);
+      const apiBody =
+        mpError &&
+        typeof mpError === 'object' &&
+        'message' in mpError &&
+        typeof (mpError as { message: unknown }).message === 'string'
+          ? (mpError as { message: string }).message
+          : null;
+      const fallback =
+        apiBody ||
+        (typeof (mpError as { cause?: unknown })?.cause === 'string'
+          ? (mpError as { cause: string }).cause
+          : err.message);
+      const message =
+        process.env.NODE_ENV !== 'production'
+          ? fallback || JSON.stringify(mpError)
+          : 'Error al crear la sesión de pago. Reintentar más tarde.';
+      console.error('Error al crear preferencia en Mercado Pago:', fallback, mpError);
+      return NextResponse.json(
+        { error: message },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ init_point: initPoint });
+  } catch (err) {
+    console.error('POST /api/entradas/create-preference error:', err);
+    return NextResponse.json(
+      { error: 'Error interno' },
+      { status: 500 }
+    );
+  }
+}

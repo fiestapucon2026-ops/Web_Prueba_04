@@ -9,6 +9,7 @@
 1. **REGLA #1:** Los cambios **estéticos** no pueden modificar código que afecte al **sistema** (flujo de pago, APIs, webhooks, tokens, seguridad, órdenes, tickets, Supabase, Mercado Pago). Estética = solo CSS, textos, imágenes, layout; sin tocar lógica ni rutas API.
 2. **Protocolo doble confirmación** (`.cursorrules`): Fase 1 Análisis → Fase 2 Propuesta → pedir "Autorización para ejecutar" → Fase 3 Ejecución solo tras "Autorizado/Proceder".
 3. **Respaldar antes de modificar:** Usar carpetas `respaldo_*` existentes o crear nueva con copia del archivo antes de cambiar.
+4. **Preferencia de documentos:** No generar documentos de pasos para el usuario (tipo `PASOS_*.md`) salvo que pida **explícitamente** un documento. Los recordatorios/instrucciones para traspaso de chat sí se mantienen actualizados.
 
 ---
 
@@ -86,6 +87,7 @@ Si se quiere volver solo a Checkout Pro: en Vercel, **borrar** o dejar **vacía*
 - **Estado general / estética:** `INSTRUCCIONES_PARA_SIGUIENTE_CHAT_FINAL.md`
 - **Migración pago on-site:** `docs/MIGRACION_PAGO_ONSITE_ANALISIS_Y_PLAN.md`
 - **MP pago sin cuenta Android:** `docs/MERCADOPAGO_PAGO_SIN_CUENTA_ANDROID.md`
+- **Control de acceso QR (informe para experto):** `INFORME_EXPERTO_CONTROL_ACCESO_QR.md` — implementación, errores, punto muerto y solicitud de alternativas (lectura cámara no viable; validación manual OK). **URL producción:** https://www.festivalpucon.cl/admin/validar-qr
 - **Reglas del proyecto:** `.cursorrules`
 
 ---

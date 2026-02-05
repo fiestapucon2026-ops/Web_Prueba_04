@@ -24,13 +24,9 @@ function isRateLimited(ip: string, path: string): boolean {
   return entry.count > ADMIN_RATE_LIMIT;
 }
 
-const CSP =
-  "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self'; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
-
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // Excluir /workers para que Next.js sirva el worker estático sin procesarlo
   if (path.startsWith('/workers')) {
     return NextResponse.next();
   }
@@ -53,9 +49,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const res = NextResponse.next();
-  res.headers.set('Content-Security-Policy', CSP);
-  return res;
+  return NextResponse.next();
 }
 
 export const config = { matcher: ['/admin/:path*', '/api/admin/:path*', '/workers/:path*'] };

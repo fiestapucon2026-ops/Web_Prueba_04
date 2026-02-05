@@ -3,12 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import QrScanner from 'qr-scanner';
 
-// CONFIGURACIÓN CRÍTICA: Ruta absoluta del worker para evitar problemas de base path
-function getWorkerPath(): string {
-  if (typeof window === 'undefined') return '/workers/qr-scanner-worker.min.js';
-  return `${window.location.origin}/workers/qr-scanner-worker.min.js`;
-}
-
 interface ScannerV2Props {
   onScan: (data: string) => void;
   onError?: (msg: string) => void;
@@ -22,11 +16,12 @@ export default function ScannerV2({ onScan, onError }: ScannerV2Props) {
   useEffect(() => {
     if (!videoRef.current) return;
 
-    if (typeof window !== 'undefined') {
-      (QrScanner as unknown as { WORKER_PATH: string }).WORKER_PATH = getWorkerPath();
-      console.log('Worker Path configurado:', (QrScanner as unknown as { WORKER_PATH: string }).WORKER_PATH);
-    }
+    // 1. CONFIGURACIÓN EXPLÍCITA DEL WORKER (Evita error 404/undefined)
+    const workerPath = `${window.location.origin}/workers/qr-scanner-worker.min.js`;
+    (QrScanner as unknown as { WORKER_PATH: string }).WORKER_PATH = workerPath;
+    console.log('[ScannerV2] Configurando Worker en:', workerPath);
 
+    // 2. Instanciación
     const scanner = new QrScanner(
       videoRef.current,
       (result) => {

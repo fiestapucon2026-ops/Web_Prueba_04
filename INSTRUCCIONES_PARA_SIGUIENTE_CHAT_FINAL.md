@@ -17,6 +17,7 @@
 
 - **Proyecto:** web_oficial_festival — venta de entradas, Next.js 14+, TypeScript, Vercel, Supabase, Mercado Pago.
 - **Deploy:** Producción en **www.festivalpucon.cl**. Deploy manual: `cd /home/lvc/web_oficial_festival && npx vercel deploy --prod`.
+- **Control de Acceso (validar QR):** **https://www.festivalpucon.cl/admin/validar-qr**
 - **Módulo entradas/tickets:** **100% operativo.** Compra de prueba confirmada: Success → Mis entradas → tickets con QR visibles e imprimibles. Fallback vía by-reference + búsqueda MP funciona.
 - **Fase actual:** Aspectos **estéticos** únicamente. No modificar código que afecte al sistema (regla de oro #1).
 
