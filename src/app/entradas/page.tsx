@@ -249,7 +249,7 @@ export default function EntradasPage() {
                     onClick={handleCompraTickets}
                     className="w-full rounded-lg bg-[#39ff14] px-4 py-3 font-semibold text-black disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Compra tus tickets
+                    Compra tus entradas
                   </button>
                 </div>
               </>
@@ -263,6 +263,13 @@ export default function EntradasPage() {
             className="rounded-xl p-4 md:p-6 text-white"
             style={CARD_STYLE}
           >
+            <button
+              type="button"
+              className="mb-4 w-full text-center text-lg font-semibold cursor-default"
+              style={{ color: '#ffbd59' }}
+            >
+              Último paso !! … para llegar al Festival Pucón 2026
+            </button>
             <button
               type="button"
               onClick={handleVolverToTickets}

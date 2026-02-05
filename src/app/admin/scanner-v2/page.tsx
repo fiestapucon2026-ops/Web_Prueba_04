@@ -11,7 +11,8 @@ export default function ScannerPageV2() {
   const [inputKey, setInputKey] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [lastResult, setLastResult] = useState<{ valid: boolean; msg: string } | null>(null);
+  type ResultKind = 'access_ok' | 'already_used' | 'invalid_qr' | 'valid_other_day';
+  const [lastResult, setLastResult] = useState<{ kind: ResultKind; msg: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [notification, setNotification] = useState<Notif>(null);
   const [lastRawDecoded, setLastRawDecoded] = useState<string | null>(null);
@@ -19,7 +20,7 @@ export default function ScannerPageV2() {
   const checkAuth = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/inventory', { credentials: 'include' });
+      const res = await fetch('/api/admin/check', { credentials: 'include' });
       if (res.status === 401) {
         setAuthenticated(false);
         return;
@@ -77,13 +78,22 @@ export default function ScannerPageV2() {
           return;
         }
 
+        const apiMsg = (data.message ?? '').trim();
         if (data.valid) {
-          setLastResult({ valid: true, msg: '¡ACCESO PERMITIDO!' });
+          setLastResult({ kind: 'access_ok', msg: '¡ACCESO PERMITIDO!' });
           setNotification({ type: 'success', message: 'Entrada válida' });
           new Audio('/sounds/success.mp3').play().catch(() => {});
+        } else if (apiMsg === 'Entrada ya utilizada') {
+          setLastResult({ kind: 'already_used', msg: 'ENTRADA YA UTILIZADA' });
+          setNotification({ type: 'error', message: 'Entrada ya utilizada' });
+          navigator.vibrate?.([200, 100, 200]);
+        } else if (apiMsg === 'Válido para otro día') {
+          setLastResult({ kind: 'valid_other_day', msg: 'QR VALIDO PERO PARA OTRO DIA' });
+          setNotification({ type: 'error', message: 'Válido para otro día' });
+          navigator.vibrate?.([200, 100, 200]);
         } else {
-          setLastResult({ valid: false, msg: data.message ?? 'Entrada rechazada' });
-          setNotification({ type: 'error', message: data.message ?? 'Error' });
+          setLastResult({ kind: 'invalid_qr', msg: 'QR NO VALIDO' });
+          setNotification({ type: 'error', message: apiMsg || 'Entrada no válida' });
           navigator.vibrate?.([200, 100, 200]);
         }
       } catch {
@@ -203,15 +213,25 @@ export default function ScannerPageV2() {
       {lastResult ? (
         <div
           className={`w-full max-w-md p-8 rounded-2xl text-center shadow-2xl mb-6 ${
-            lastResult.valid ? 'bg-green-600' : 'bg-red-600'
-          } text-white`}
+            lastResult.kind === 'valid_other_day' ? 'bg-amber-400 text-black' : 'text-white ' + (
+              lastResult.kind === 'access_ok'
+                ? 'bg-green-600'
+                : lastResult.kind === 'already_used'
+                  ? 'bg-red-600'
+                  : 'bg-purple-600'
+            )
+          }`}
         >
-          <div className="text-6xl mb-4">{lastResult.valid ? '✅' : '⛔'}</div>
+          <div className="text-6xl mb-4">
+            {lastResult.kind === 'access_ok' ? '✅' : lastResult.kind === 'already_used' ? '⛔' : lastResult.kind === 'invalid_qr' ? '🚫' : '📅'}
+          </div>
           <h2 className="text-3xl font-bold uppercase">{lastResult.msg}</h2>
           <button
             type="button"
             onClick={resetScanner}
-            className="mt-8 bg-white text-black px-8 py-3 rounded-full font-bold shadow-lg active:scale-95 transition-transform"
+            className={`mt-8 px-8 py-3 rounded-full font-bold shadow-lg active:scale-95 transition-transform ${
+              lastResult.kind === 'valid_other_day' ? 'bg-gray-900 text-white' : 'bg-white text-black'
+            }`}
           >
             ESCANEAR SIGUIENTE
           </button>

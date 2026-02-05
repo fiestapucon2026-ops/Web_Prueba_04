@@ -152,11 +152,11 @@ function MisEntradasContent() {
         <div className="mx-auto max-w-2xl text-center">
           <h1 className="text-2xl font-bold text-red-400">Error al cargar</h1>
           <p className="mt-2 text-slate-400">
-            No se pudieron cargar tus entradas. El enlace puede haber expirado (válido 7 días).
+            No se pudieron cargar tus entradas. El enlace puede haber expirado (válido por 7 días).
           </p>
           {tokenFromSessionStorage && (
             <p className="mt-2 text-sm text-slate-500">
-              Si acabas de comprar, las entradas pueden tardar unos segundos. Prueba a reintentar.
+              Si acabas de comprar, las entradas pueden tardar unos segundos. Vuelve a intentar.
             </p>
           )}
           <div className="mt-6 flex flex-wrap gap-3 justify-center">
@@ -215,6 +215,7 @@ function MisEntradasContent() {
       <div className="mx-auto max-w-2xl">
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold">Mis entradas</h1>
+          <p className="mt-2 text-lg font-semibold text-white">Festival Pucón 2026</p>
           <p className="mt-1 text-slate-400">
             {allTickets.length} entrada{allTickets.length !== 1 ? 's' : ''} · Compra{' '}
             {data.external_reference.slice(0, 8)}…

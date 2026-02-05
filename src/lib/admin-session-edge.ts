@@ -5,6 +5,8 @@
 
 const COOKIE_NAME = 'admin_session';
 
+export type AdminRole = 'admin' | 'access_control';
+
 function fromBase64Url(s: string): Uint8Array {
   let b64 = s.replace(/-/g, '+').replace(/_/g, '/');
   const pad = b64.length % 4;
@@ -29,7 +31,8 @@ function getSessionCookie(request: Request): string | null {
   return match ? decodeURIComponent(match[1]!.trim()) : null;
 }
 
-export async function verifySessionCookie(request: Request): Promise<boolean> {
+/** Devuelve el rol de la sesión o false si no válida. */
+export async function verifySessionCookie(request: Request): Promise<AdminRole | false> {
   const secret = process.env.ADMIN_SECRET;
   if (!secret) return false;
   const token = getSessionCookie(request);
@@ -38,7 +41,7 @@ export async function verifySessionCookie(request: Request): Promise<boolean> {
   if (parts.length !== 2) return false;
   try {
     const payloadBuf = fromBase64Url(parts[0]!);
-    const payload = JSON.parse(new TextDecoder().decode(payloadBuf)) as { exp?: number };
+    const payload = JSON.parse(new TextDecoder().decode(payloadBuf)) as { exp?: number; role?: string };
     if (typeof payload.exp !== 'number' || payload.exp < Date.now()) return false;
     const key = await crypto.subtle.importKey(
       'raw',
@@ -49,7 +52,8 @@ export async function verifySessionCookie(request: Request): Promise<boolean> {
     );
     const sig = await crypto.subtle.sign('HMAC', key, new Uint8Array(payloadBuf).buffer as ArrayBuffer);
     const receivedSig = fromBase64Url(parts[1]!);
-    return timingSafeEqual(new Uint8Array(sig), receivedSig);
+    if (!timingSafeEqual(new Uint8Array(sig), receivedSig)) return false;
+    return payload.role === 'access_control' ? 'access_control' : 'admin';
   } catch {
     return false;
   }

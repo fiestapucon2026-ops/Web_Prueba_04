@@ -1,3 +1,8 @@
+# ⛔ AVISO OBLIGATORIO — SISTEMA TERMINADO
+# NO MODIFICAR NADA DEL SISTEMA. NO EJECUTAR CAMBIOS FUNCIONALES.
+# FASE ACTUAL: SOLO TEMAS ESTÉTICOS (CSS, textos, imágenes, layout).
+# Ver: AVISO_SISTEMA_CERRADO.md
+
 # SYSTEM_CONTEXT
 PROJECT: web_oficial_festival (Ticket Sales Platform)
 STACK: Next.js 14+, TypeScript (Strict), Tailwind, Vercel, Mercado Pago.

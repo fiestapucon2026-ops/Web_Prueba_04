@@ -98,7 +98,7 @@ export function TicketCard({ ticket }: TicketCardProps) {
         </div>
       </div>
       <p className="text-center text-sm text-slate-600">
-        Presenta este código o el PDF enviado a tu email al ingresar.
+        Presenta este código o el PDF enviado a tu correo al ingresar al evento.
       </p>
     </div>
   );

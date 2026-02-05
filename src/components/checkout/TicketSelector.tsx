@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { EntradasInventoryItem } from '@/app/api/entradas/inventory/route';
 
 const MAX_MAIN_QUANTITY = 8;
@@ -66,6 +66,12 @@ export function TicketSelector({
   const [legalAgeForPromo, setLegalAgeForPromo] = useState<null | true | false>(null);
   const [showAgeModal, setShowAgeModal] = useState(false);
   const [pendingPromoItem, setPendingPromoItem] = useState<EntradasInventoryItem | null>(null);
+  // Parpadeo amarillo cada 1,5 s en botón Promo cuando no está elegido
+  const [promoHighlightYellow, setPromoHighlightYellow] = useState(false);
+  useEffect(() => {
+    const t = setInterval(() => setPromoHighlightYellow((v) => !v), 1500);
+    return () => clearInterval(t);
+  }, []);
 
   const handleSelectMain = (item: EntradasInventoryItem) => {
     const isSelected = cart.mainTicket?.ticket_type_id === item.ticket_type_id;
@@ -156,7 +162,7 @@ export function TicketSelector({
   return (
     <div className="space-y-6 text-white">
       <h3 className="text-lg font-semibold">
-        Elige tu tickets para el {selectedDateLabel}
+        Elige tus tickets para el {selectedDateLabel}
       </h3>
 
       {/* Entrada: Familiar o Todo el Día (solo uno) */}
@@ -184,8 +190,16 @@ export function TicketSelector({
                       : 'border-white/30 bg-white/5 text-white hover:border-white/50'
                 }`}
               >
-                <span className="font-semibold">{item.name}</span>
-                <span className="ml-2 text-sm">${item.price.toLocaleString('es-CL')} CLP</span>
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="font-semibold">{item.name}</span>
+                  {item.name === 'Familiar' && (
+                    <span className="text-xs text-white/80">(Ingreso de 12:30 a 17:00 hrs)</span>
+                  )}
+                  {item.name === 'Todo el Día' && (
+                    <span className="text-xs text-white/80">(ingreso de 12:30 a 23:00 hrs)</span>
+                  )}
+                </div>
+                <span className="mt-1 block text-sm">${item.price.toLocaleString('es-CL')} CLP</span>
                 {isSoldOut && (
                   <span className="ml-2 rounded bg-red-900/60 px-2 py-0.5 text-xs font-medium text-red-200">
                     AGOTADOS
@@ -193,7 +207,7 @@ export function TicketSelector({
                 )}
                 {showLastUnits && (
                   <span className="ml-2 rounded bg-amber-600/70 px-2 py-0.5 text-xs font-medium text-amber-100">
-                    ¡¡ ULTIMAS UNIDADES !!
+                    ¡ÚLTIMAS UNIDADES!
                   </span>
                 )}
               </button>
@@ -274,22 +288,23 @@ export function TicketSelector({
                 )}
                 {showLastUnits && (
                   <span className="ml-2 rounded bg-amber-600/70 px-2 py-0.5 text-xs font-medium text-amber-100">
-                    ¡¡ ULTIMAS UNIDADES !!
+                    ¡ÚLTIMAS UNIDADES!
                   </span>
                 )}
               </button>
             );
           })}
         </div>
-        <p className="mt-1 text-xs text-white/60">Solo puedes comprar un estacionamiento.</p>
+        <p className="mt-1 text-xs text-white/60">Sólo puedes comprar un estacionamiento.</p>
       </div>
 
       {/* Promos (opcional): máx. 1 por entrada; declaración mayoría de edad obligatoria */}
       {promoTickets.length > 0 && cart.mainTicket && (
         <div>
-          <p className="mb-2 text-sm font-medium text-white/90">
-            ¿Quieres agregar promoción? (máx. {maxPromoQty} = 1 por entrada)
+          <p className="mb-1 text-sm font-medium text-white/90">
+            ¿Quieres agregar promoción? Incluye el Ecovaso oficial del Festival Pucón 2026 de 500 cc.
           </p>
+          <p className="mb-2 text-xs text-white/70">(máx. {maxPromoQty} = 1 por entrada)</p>
           {promoBlockedByAge && (
             <p className="mb-2 text-sm text-amber-200">
               Para agregar esta promoción debes declarar que eres mayor de edad.
@@ -304,6 +319,7 @@ export function TicketSelector({
                 !isSoldOut &&
                 item.fomo_threshold > 0 &&
                 item.occupied_pct >= item.fomo_threshold;
+              const showPromoBlink = !isSelected && !isDisabled;
               return (
                 <button
                   key={item.ticket_type_id}
@@ -315,7 +331,9 @@ export function TicketSelector({
                       ? 'border-[#39ff14] bg-[#39ff14]/20 text-white'
                       : isDisabled
                         ? 'cursor-not-allowed border-neutral-600 bg-neutral-800 text-neutral-500'
-                        : 'border-white/30 bg-white/5 text-white hover:border-white/50'
+                        : showPromoBlink && promoHighlightYellow
+                          ? 'border-[#ffbd59] bg-[#ffbd59]/25 text-white'
+                          : 'border-white/30 bg-white/5 text-white hover:border-white/50'
                   }`}
                 >
                   <span className="font-semibold">{item.name}</span>
@@ -327,7 +345,7 @@ export function TicketSelector({
                   )}
                   {showLastUnits && !isDisabled && (
                     <span className="ml-2 rounded bg-amber-600/70 px-2 py-0.5 text-xs font-medium text-amber-100">
-                      ¡¡ ULTIMAS UNIDADES !!
+                      ¡ÚLTIMAS UNIDADES!
                     </span>
                   )}
                 </button>

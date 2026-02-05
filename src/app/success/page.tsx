@@ -80,7 +80,8 @@ function SuccessContent() {
       )}
       <div className="max-w-lg w-full bg-black border border-[#cc0000] rounded-lg p-8 shadow-[0_4px_12px_#ff9999] text-center">
         <div className="mb-6 text-5xl" aria-hidden>✓</div>
-        <h1 className="text-2xl font-bold text-white mb-2">Venta exitosa</h1>
+        <h1 className="text-4xl font-bold text-white mb-1">¡FELICITACIONES!!!</h1>
+        <h2 className="text-4xl font-bold text-white mb-2">Venta exitosa</h2>
         <p className="text-gray-300 mb-6">
           Tu pago se acreditó correctamente. Elige una opción:
         </p>
@@ -121,7 +122,8 @@ export default function SuccessPage() {
         <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
           <div className="max-w-lg w-full bg-black border border-[#cc0000] rounded-lg p-8 shadow-[0_4px_12px_#ff9999] text-center">
             <div className="mb-6 text-5xl" aria-hidden>✓</div>
-            <h1 className="text-2xl font-bold text-white mb-2">Venta exitosa</h1>
+            <h1 className="text-4xl font-bold text-white mb-1">¡FELICITACIONES!!!</h1>
+            <h2 className="text-4xl font-bold text-white mb-2">Venta exitosa</h2>
             <p className="text-gray-300 mb-6">Cargando...</p>
           </div>
         </main>

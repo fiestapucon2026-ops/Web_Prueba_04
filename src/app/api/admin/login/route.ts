@@ -14,12 +14,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Clave requerida' }, { status: 400 });
     }
 
-    const ok = verifyAdminKeyFromBody(parsed.data.key);
-    if (!ok) {
+    const role = verifyAdminKeyFromBody(parsed.data.key);
+    if (!role) {
       return NextResponse.json({ error: 'Clave inválida' }, { status: 401 });
     }
 
-    const token = createSessionToken();
+    const token = createSessionToken(role);
     const res = NextResponse.json({ ok: true });
     res.headers.set('Set-Cookie', getSetCookieHeader(token));
     return res;

@@ -15,7 +15,7 @@ async function fetcher(url: string): Promise<OrderResponse> {
   const res = await fetch(url);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error((err as { error?: string }).error || 'Failed to fetch');
+    throw new Error((err as { error?: string }).error || 'Error al cargar');
   }
   return res.json();
 }
@@ -73,7 +73,7 @@ export default function CheckoutSuccessPage() {
       <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
         <div className="mx-auto max-w-2xl">
           <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold">Cargando tu entrada</h1>
+            <h1 className="text-2xl font-bold">Cargando tus entradas</h1>
             <p className="mt-1 text-slate-400">Un momento...</p>
           </div>
           <SkeletonCard />
@@ -97,7 +97,8 @@ export default function CheckoutSuccessPage() {
     <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
       <div className="mx-auto max-w-2xl">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold">Entrada lista</h1>
+          <h1 className="text-2xl font-bold">Tu compra está lista</h1>
+          <p className="mt-2 text-lg font-semibold text-white">Festival Pucón 2026</p>
           <p className="mt-1 text-slate-400">
             Orden {data.order_id.slice(0, 8)}… · {data.status}
           </p>

@@ -194,7 +194,7 @@ export function CustomerForm({ onSubmit, disabled = false }: CustomerFormProps) 
           onChange={handleChange('emailConfirmation')}
           onBlur={handleBlur('emailConfirmation')}
           disabled={disabled}
-          placeholder="repite tu email"
+          placeholder="Repite tu email"
           className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
           autoComplete="email"
         />

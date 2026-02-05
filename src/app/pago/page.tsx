@@ -41,7 +41,7 @@ function PagoContent() {
       .then(({ ok, data }) => {
         if (!mounted) return;
         if (!ok) {
-          setError(data?.error ?? 'No se pudo cargar los datos de pago.');
+          setError(data?.error ?? 'No se pudieron cargar los datos de pago.');
           return;
         }
         if (data.external_reference && Number.isFinite(data.transaction_amount)) {

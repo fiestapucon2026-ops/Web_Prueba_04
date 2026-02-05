@@ -48,7 +48,7 @@ export default function TicketPage() {
       try {
         const response = await fetch('/api/tickets/types');
         if (!response.ok) {
-          throw new Error('Error al cargar tipos de tickets');
+          throw new Error('Error al cargar tipos de entradas');
         }
         const result: TypesResponse = await response.json();
         setData(result);
@@ -60,7 +60,7 @@ export default function TicketPage() {
         }
       } catch (err) {
         console.error('Error al cargar datos:', err);
-        setError('Error al cargar la información de tickets. Por favor, recarga la página.');
+        setError('Error al cargar la información de entradas. Por favor, recarga la página.');
       } finally {
         setLoading(false);
       }
@@ -109,7 +109,7 @@ export default function TicketPage() {
     }
 
     if (!selectedEventId || !selectedTicketTypeId) {
-      alert('Por favor, selecciona un evento y tipo de ticket');
+      alert('Por favor, selecciona un evento y tipo de entrada');
       return;
     }
 
@@ -117,7 +117,7 @@ export default function TicketPage() {
     // IMPORTANTE: por ahora 1 ticket por orden (schema actual no tiene quantity en orders)
     const quantity = 1;
     if (availableStock < 1) {
-      alert('Stock insuficiente. No hay tickets disponibles para esta selección.');
+      alert('Stock insuficiente. No hay entradas disponibles para esta selección.');
       return;
     }
 
@@ -189,7 +189,7 @@ export default function TicketPage() {
     return (
       <main className="min-h-screen bg-slate-900 text-white py-12 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xl">Cargando información de tickets...</p>
+          <p className="text-xl">Cargando información de entradas...</p>
         </div>
       </main>
     );
@@ -215,7 +215,7 @@ export default function TicketPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">Compra de Tickets</h1>
+          <h1 className="text-4xl font-bold mb-2">Compra de entradas</h1>
           <p className="text-slate-400">Festival Pucón 2026</p>
         </div>
 
@@ -248,9 +248,9 @@ export default function TicketPage() {
           {/* Selección de Tipo de Ticket */}
           {selectedEventId && (
             <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4">Selecciona tu ticket</h2>
+              <h2 className="text-xl font-semibold mb-4">Selecciona tu entrada</h2>
               {availableTicketTypes.length === 0 ? (
-                <p className="text-slate-400">No hay tickets disponibles para este evento</p>
+                <p className="text-slate-400">No hay entradas disponibles para este evento</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {availableTicketTypes.map((ticketType) => {
@@ -298,7 +298,7 @@ export default function TicketPage() {
                   <span className="text-lg font-semibold">1</span>
                 </div>
                 <p className="text-slate-400 text-sm mt-2">
-                  Por ahora, el sistema permite 1 ticket por compra (schema actual).
+                  Por ahora, el sistema permite 1 entrada por compra.
                 </p>
               </div>
 

@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
     if ((path === '/api/admin/login' || path === '/api/admin/logout') && request.method === 'POST') {
       // Login y logout no requieren auth
     } else {
-      const ok = await verifyAdminKeyEdge(request);
+      const ok = await verifyAdminKeyEdge(request, path);
       if (!ok) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
   }

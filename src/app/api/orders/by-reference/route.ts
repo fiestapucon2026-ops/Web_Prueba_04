@@ -228,9 +228,11 @@ export async function GET(request: Request) {
 
       const event = row.inventory?.event;
       const ticketType = row.inventory?.ticket_type;
+      const venueDisplay =
+        event?.venue?.replace(/Camping Pucón/g, 'Club de Rodeo Pucón') ?? event?.venue ?? '';
       const accessWindow =
-        event && ticketType && typeof event.date === 'string' && event.venue
-          ? `${new Date(event.date).toISOString().slice(0, 10)} ${event.venue}`
+        event && ticketType && typeof event.date === 'string' && venueDisplay
+          ? `${new Date(event.date).toISOString().slice(0, 10)} ${venueDisplay}`
           : '';
 
       const tickets: ByReferenceResponse['orders'][0]['tickets'] = [];

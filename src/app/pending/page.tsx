@@ -7,7 +7,7 @@ export default function PendingPage() {
         <div className="mb-6 text-5xl text-amber-400" aria-hidden>⏳</div>
         <h1 className="text-2xl font-bold text-white mb-2">Pago pendiente</h1>
         <p className="text-gray-300 mb-6">
-          Tu pago está pendiente (por ejemplo, transferencia o pago en efectivo). Cuando Mercado Pago confirme el pago, te enviaremos el ticket por correo.
+          Tu pago está pendiente (por ejemplo, transferencia o pago en efectivo). Cuando Mercado Pago confirme el pago, te enviaremos las entradas por correo.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link

@@ -1,10 +1,8 @@
 import crypto from 'crypto';
 
-import { getSessionCookie, verifySessionToken } from './admin-session';
+import { getSessionCookie, verifySessionToken, type AdminRole } from './admin-session';
 
 function timingSafeCompare(a: string, b: string): boolean {
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) return false;
   const ah = crypto.createHash('sha256').update(a).digest('hex');
   const bh = crypto.createHash('sha256').update(b).digest('hex');
   const aBuf = Buffer.from(ah, 'hex');
@@ -13,30 +11,32 @@ function timingSafeCompare(a: string, b: string): boolean {
   return crypto.timingSafeEqual(aBuf, bBuf);
 }
 
-/** Verifica clave enviada en body (para login). */
-export function verifyAdminKeyFromBody(key: string): boolean {
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) return false;
+/** Verifica clave enviada en body (para login). Devuelve rol o false. */
+export function verifyAdminKeyFromBody(key: string): AdminRole | false {
   if (!key || typeof key !== 'string') return false;
-  return timingSafeCompare(key, secret);
+  const secret = process.env.ADMIN_SECRET;
+  const accessKey = process.env.ACCESS_CONTROL_KEY;
+  if (secret && timingSafeCompare(key, secret)) return 'admin';
+  if (accessKey && timingSafeCompare(key, accessKey)) return 'access_control';
+  return false;
 }
 
 /**
- * Verifica x-admin-key o cookie de sesión contra ADMIN_SECRET (timing-safe).
+ * Verifica x-admin-key o cookie de sesión. Devuelve rol o false.
  */
-export function verifyAdminKey(request: Request): boolean {
+export function verifyAdminKey(request: Request): AdminRole | false {
   const secret = process.env.ADMIN_SECRET;
+  const accessKey = process.env.ACCESS_CONTROL_KEY;
   if (!secret) return false;
 
   const headerKey = request.headers.get('x-admin-key');
-  if (headerKey !== null && headerKey !== undefined && timingSafeCompare(headerKey, secret)) {
-    return true;
+  if (headerKey !== null && headerKey !== undefined) {
+    if (timingSafeCompare(headerKey, secret)) return 'admin';
+    if (accessKey && timingSafeCompare(headerKey, accessKey)) return 'access_control';
   }
 
   const cookieToken = getSessionCookie(request);
-  if (cookieToken && verifySessionToken(cookieToken)) {
-    return true;
-  }
+  if (cookieToken) return verifySessionToken(cookieToken);
 
   return false;
 }

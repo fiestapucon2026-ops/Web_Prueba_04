@@ -91,7 +91,9 @@ const TicketPDFPage: React.FC<TicketPageProps> = ({ order, qrDataUrl }) => {
     hour: '2-digit',
     minute: '2-digit',
   });
-  const venue = order.inventory.event.venue;
+  const venue =
+    order.inventory.event.venue?.replace(/Camping Pucón/g, 'Club de Rodeo Pucón') ??
+    order.inventory.event.venue;
   const orderDate = new Date(order.created_at).toLocaleDateString('es-CL', {
     year: 'numeric',
     month: 'long',
@@ -153,7 +155,7 @@ const TicketPDFPage: React.FC<TicketPageProps> = ({ order, qrDataUrl }) => {
 
       <View style={styles.footer}>
         <Text>
-          Este ticket es válido solo para el evento y fecha indicados.{'\n'}
+          Este ticket es válido sólo para el evento y fecha indicados.{'\n'}
           Presenta este documento (impreso o digital) al ingresar al evento.
         </Text>
       </View>

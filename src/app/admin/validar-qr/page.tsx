@@ -23,7 +23,7 @@ export default function AdminValidarQrPage() {
   const checkAuth = useCallback(async (): Promise<boolean> => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/inventory', { credentials: 'include' });
+      const res = await fetch('/api/admin/check', { credentials: 'include' });
       if (res.status === 401) {
         setAuthenticated(false);
         return false;

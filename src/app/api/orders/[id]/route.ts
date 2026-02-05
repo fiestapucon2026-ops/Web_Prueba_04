@@ -83,9 +83,11 @@ export async function GET(
       );
     }
 
+    const venueDisplay =
+      event.venue?.replace(/Camping Pucón/g, 'Club de Rodeo Pucón') ?? event.venue ?? '';
     const accessWindow =
-      typeof event.date === 'string' && event.venue
-        ? `${new Date(event.date).toISOString().slice(0, 10)} ${event.venue}`
+      typeof event.date === 'string' && venueDisplay
+        ? `${new Date(event.date).toISOString().slice(0, 10)} ${venueDisplay}`
         : '';
 
     const tickets: OrderResponse['tickets'] = [];
