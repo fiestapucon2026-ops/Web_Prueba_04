@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import QrScanner from 'qr-scanner';
 
-// CONFIGURACIÓN CRÍTICA: Forzar la ruta del worker estático
-// Esto evita el error 404 en Vercel/Producción
-if (typeof window !== 'undefined') {
-  (QrScanner as unknown as { WORKER_PATH: string }).WORKER_PATH = '/workers/qr-scanner-worker.min.js';
+// CONFIGURACIÓN CRÍTICA: Ruta absoluta del worker para evitar problemas de base path
+function getWorkerPath(): string {
+  if (typeof window === 'undefined') return '/workers/qr-scanner-worker.min.js';
+  return `${window.location.origin}/workers/qr-scanner-worker.min.js`;
 }
 
 interface ScannerV2Props {
@@ -21,6 +21,11 @@ export default function ScannerV2({ onScan, onError }: ScannerV2Props) {
 
   useEffect(() => {
     if (!videoRef.current) return;
+
+    if (typeof window !== 'undefined') {
+      (QrScanner as unknown as { WORKER_PATH: string }).WORKER_PATH = getWorkerPath();
+      console.log('Worker Path configurado:', (QrScanner as unknown as { WORKER_PATH: string }).WORKER_PATH);
+    }
 
     const scanner = new QrScanner(
       videoRef.current,
@@ -39,12 +44,13 @@ export default function ScannerV2({ onScan, onError }: ScannerV2Props) {
           y: 0,
           width: video.videoWidth,
           height: video.videoHeight,
-          downScaledWidth: 600,
+          downScaledWidth: 1024,
         }),
       }
     );
 
     scannerRef.current = scanner;
+    scanner.setInversionMode('both');
 
     scanner
       .start()

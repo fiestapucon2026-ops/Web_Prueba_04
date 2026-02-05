@@ -29,6 +29,12 @@ const CSP =
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
+
+  // Excluir /workers para que Next.js sirva el worker estático sin procesarlo
+  if (path.startsWith('/workers')) {
+    return NextResponse.next();
+  }
+
   const ip = getClientIp(request);
 
   if (isRateLimited(ip, path)) {
@@ -52,4 +58,4 @@ export async function middleware(request: NextRequest) {
   return res;
 }
 
-export const config = { matcher: ['/admin/:path*', '/api/admin/:path*'] };
+export const config = { matcher: ['/admin/:path*', '/api/admin/:path*', '/workers/:path*'] };
