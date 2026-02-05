@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Scanner from '@/components/Scanner';
 
 type ValidateResult = {
@@ -19,8 +19,6 @@ export default function AdminValidarQrPage() {
   const [result, setResult] = useState<ValidateResult | null>(null);
   const [validating, setValidating] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [manualCode, setManualCode] = useState('');
-  const manualInputRef = useRef<HTMLInputElement>(null);
 
   const checkAuth = useCallback(async (): Promise<boolean> => {
     setLoading(true);
@@ -74,7 +72,6 @@ export default function AdminValidarQrPage() {
       try {
         const r = await validateQrUuid(trimmed);
         setResult(r);
-        if (r.valid) setManualCode('');
       } finally {
         setValidating(false);
       }
@@ -118,29 +115,9 @@ export default function AdminValidarQrPage() {
     setCameraError('No se pudo iniciar la cámara. Revisa los permisos del navegador.');
   }, []);
 
-  const handleValidarManual = useCallback(async () => {
-    const code = manualCode.trim();
-    if (!code) return;
-    if (!UUID_REGEX.test(code)) {
-      setResult({ valid: false, message: 'El código no tiene formato de entrada válido (UUID).' });
-      return;
-    }
-    setValidating(true);
-    setResult(null);
-    try {
-      const r = await validateQrUuid(code);
-      setResult(r);
-      if (r.valid) setManualCode('');
-    } finally {
-      setValidating(false);
-    }
-  }, [manualCode, validateQrUuid]);
-
   const handleValidarOtro = useCallback(() => {
     setResult(null);
     setCameraError(null);
-    setManualCode('');
-    setTimeout(() => manualInputRef.current?.focus(), 0);
   }, []);
 
   const handleLogout = async () => {
@@ -195,32 +172,6 @@ export default function AdminValidarQrPage() {
     );
   }
 
-  const manualBlock = (
-    <div className="rounded-xl border border-slate-600 bg-slate-800/50 p-4">
-      <p className="mb-2 text-sm text-slate-300">
-        Validar con código (pegar desde la entrada o lector USB/Bluetooth)
-      </p>
-      <input
-        ref={manualInputRef}
-        type="text"
-        value={manualCode}
-        onChange={(e) => setManualCode(e.target.value)}
-        placeholder="ej: 2a33410f-b165-4afa-a358-9fa095cdcadb"
-        className="mb-2 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500"
-        autoFocus
-        aria-label="Código UUID de la entrada"
-      />
-      <button
-        type="button"
-        onClick={handleValidarManual}
-        disabled={validating || !manualCode.trim()}
-        className="w-full rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-      >
-        Validar código
-      </button>
-    </div>
-  );
-
   return (
     <main className="min-h-screen bg-slate-900 px-4 py-6 text-white">
       <div className="mx-auto max-w-sm">
@@ -267,15 +218,13 @@ export default function AdminValidarQrPage() {
                 En el navegador, permite el acceso a la cámara para este sitio y recarga la página.
               </p>
             </div>
-            {manualBlock}
           </div>
         ) : (
           <div className="space-y-4">
             <Scanner onScanSuccess={handleScan} onCameraError={handleCameraError} />
             <p className="text-center text-sm text-slate-400">
-              Enfoca el QR del otro celular en el recuadro o pega el código abajo.
+              Enfoca el QR del otro celular en el recuadro.
             </p>
-            {manualBlock}
           </div>
         )}
       </div>
