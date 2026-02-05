@@ -14,6 +14,7 @@
     "db:seed": "npx tsx supabase/seed.ts"
   },
   "dependencies": {
+    "@mercadopago/sdk-react": "^1.0.7",
     "@react-pdf/renderer": "^4.3.2",
     "@supabase/supabase-js": "^2.93.2",
     "@upstash/ratelimit": "^2.0.8",

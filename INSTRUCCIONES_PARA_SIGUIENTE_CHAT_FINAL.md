@@ -2,6 +2,8 @@
 
 **Copia este contenido al inicio del nuevo chat.** Todo el flujo de entradas/tickets funciona 100%. La siguiente fase es solo aspectos estéticos.
 
+**Última actualización (2026-02-05):** Pago on-site (Bricks) implementado. Para traspaso completo de esa sesión y lo pendiente, usar **`INSTRUCCIONES_PARA_SIGUIENTE_CHAT_2026_02_05.md`**.
+
 ---
 
 ## REGLAS DE ORO (OBLIGATORIAS)
@@ -88,10 +90,22 @@
 
 ---
 
-## VARIABLES DE ENTORNO CRÍTICAS (Vercel)
+## PAGO ON-SITE (BRICKS) — ACTUALIZACIÓN 2026-02-05
 
-- `MP_WEBHOOK_SECRET`, `MP_ACCESS_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `QR_SIGNING_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_BASE_URL`
+- Implementado: reserve, payment-data, create-payment, página `/pago` con Card Payment Brick.
+- Variables nuevas en Vercel: `NEXT_PUBLIC_MP_PUBLIC_KEY`, `MP_PAYMENT_DATA_SECRET`.
+- **Deploy:** El próximo deploy ocurre al hacer **push** a la rama. Añadir variables no redeploya; para aplicarlas: Deployments → menú del último deploy → **Redeploy**.
+- Pendiente: redeploy manual (si no se hizo) y **probar flujo** Entradas/Tickets → /pago → pago con tarjeta → success.
+- Rollback: borrar o vaciar `NEXT_PUBLIC_MP_PUBLIC_KEY` en Vercel y redeploy (vuelve a Checkout Pro).
+- Detalle completo: **`INSTRUCCIONES_PARA_SIGUIENTE_CHAT_2026_02_05.md`**.
 
 ---
 
-**Resumen para el asistente:** Todo el flujo de entradas/tickets está 100% operativo. La fase actual es **solo estética**. Regla de oro: cambios estéticos no pueden modificar código que afecte al sistema. **Para nuevo chat enfocado en estética:** usar documento `INSTRUCCIONES_NUEVO_CHAT_SOLO_ESTETICA.md`.
+## VARIABLES DE ENTORNO CRÍTICAS (Vercel)
+
+- `MP_WEBHOOK_SECRET`, `MP_ACCESS_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `QR_SIGNING_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_BASE_URL`
+- Pago on-site: `NEXT_PUBLIC_MP_PUBLIC_KEY`, `MP_PAYMENT_DATA_SECRET`
+
+---
+
+**Resumen para el asistente:** Todo el flujo de entradas/tickets está 100% operativo. Pago on-site (Bricks) implementado; falta redeploy y prueba. Fase actual permite **solo estética** sin tocar sistema. Regla de oro: cambios estéticos no pueden modificar código que afecte al sistema. **Traspaso sesión pago on-site:** `INSTRUCCIONES_PARA_SIGUIENTE_CHAT_2026_02_05.md`.

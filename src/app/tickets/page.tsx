@@ -124,12 +124,38 @@ export default function TicketPage() {
     setPurchaseLoading(true);
 
     try {
-      // Clave estable por formulario + ventana 5s: doble clic devuelve la misma preferencia (base64url seguro para headers)
       const windowSec = Math.floor(Date.now() / 5000);
       const raw = `${email}|${selectedEventId}|${selectedTicketTypeId}|${windowSec}`;
       const idempotencyKey = typeof btoa !== 'undefined'
         ? btoa(unescape(encodeURIComponent(raw))).replace(/\+/g, '-').replace(/\//g, '_')
         : raw;
+
+      const useOnSite = typeof process.env.NEXT_PUBLIC_MP_PUBLIC_KEY === 'string' && process.env.NEXT_PUBLIC_MP_PUBLIC_KEY.length > 0;
+
+      if (useOnSite) {
+        const response = await fetch('/api/tickets/reserve', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': idempotencyKey,
+          },
+          body: JSON.stringify({
+            event_id: selectedEventId,
+            ticket_type_id: selectedTicketTypeId,
+            quantity: 1,
+            payer_email: email,
+          }),
+        });
+        const result = await response.json();
+        if (response.ok && result.payment_data_token) {
+          window.location.href = `/pago?token=${encodeURIComponent(result.payment_data_token)}`;
+          return;
+        }
+        alert(result.error || 'Error al reservar. Por favor, intenta nuevamente.');
+        setPurchaseLoading(false);
+        return;
+      }
+
       const response = await fetch('/api/tickets/create-preference', {
         method: 'POST',
         headers: {
@@ -147,10 +173,8 @@ export default function TicketPage() {
       const result = await response.json();
 
       if (response.ok && result.init_point) {
-        // Redirección a Mercado Pago
         window.location.href = result.init_point;
       } else {
-        // Error en la respuesta
         alert(result.error || 'Error al procesar el pago. Por favor, intenta nuevamente.');
         setPurchaseLoading(false);
       }

@@ -109,6 +109,29 @@ export default function EntradasPage() {
         if (cart.promoTicket && cart.promoTicket.quantity > 0) {
           items.push({ ticket_type_id: cart.promoTicket.ticket_type_id, quantity: cart.promoTicket.quantity });
         }
+
+        const useOnSite = typeof process.env.NEXT_PUBLIC_MP_PUBLIC_KEY === 'string' && process.env.NEXT_PUBLIC_MP_PUBLIC_KEY.length > 0;
+
+        if (useOnSite) {
+          const res = await fetch('/api/entradas/reserve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date: selectedDate,
+              items,
+              customer: { email: values.email },
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data?.payment_data_token) {
+            window.location.href = `/pago?token=${encodeURIComponent(data.payment_data_token)}`;
+            return;
+          }
+          setPurchaseError(errorToString(data?.error, 'Error al reservar'));
+          setPurchaseLoading(false);
+          return;
+        }
+
         const res = await fetch('/api/entradas/create-preference', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
