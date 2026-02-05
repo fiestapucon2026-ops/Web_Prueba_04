@@ -68,17 +68,33 @@ export default function PantallaInicio() {
           }}
         />
 
-        {/* Imagen "Festival1.png" en último 1/4 de altura */}
-        <div className="absolute bottom-0 left-0 right-0 h-1/4 flex flex-col items-center justify-center z-40 pointer-events-none">
-          <div className="w-3/4 flex items-center justify-center pointer-events-auto">
-            <Image
-              src="/images/Festival1.png"
-              alt="Festival Pucón 2026"
-              width={1200}
-              height={200}
-              className="w-full h-auto object-contain"
-              priority
-            />
+        {/* Logo redondo: centrado en el ancho, bajo el volcán, arriba de "Festival Pucón 2026". Espacio entre logo y frase reservado para futuro botón "Compra tus entradas". */}
+        <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-center z-40 pointer-events-none pb-4">
+          <div className="w-full flex flex-col items-center justify-center pointer-events-auto">
+            {/* Logo redondo, siempre al medio del ancho */}
+            <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full overflow-hidden flex-shrink-0 border-2 border-black/20 shadow-lg">
+              <Image
+                src="/images/Logo Negro 3 sin fondo chico.png"
+                alt="Logo Festival"
+                width={200}
+                height={200}
+                className="w-full h-full object-cover"
+                priority
+              />
+            </div>
+            {/* Espacio reservado para futuro botón "Compra tus entradas" */}
+            <div className="h-14 sm:h-16 md:h-20" aria-hidden />
+            {/* Frase "Festival Pucón 2026" */}
+            <div className="w-3/4 flex items-center justify-center">
+              <Image
+                src="/images/Festival1.png"
+                alt="Festival Pucón 2026"
+                width={1200}
+                height={200}
+                className="w-full h-auto object-contain"
+                priority
+              />
+            </div>
           </div>
           {/* Botón "...como llegar" */}
           <div className="mt-4 pointer-events-auto">
@@ -89,20 +105,6 @@ export default function PantallaInicio() {
               ...como llegar
             </a>
           </div>
-        </div>
-      </div>
-
-      {/* Logo - Posicionado en Superior Derecha SOBRE la imagen */}
-      <div className="absolute top-0 right-0 p-6 lg:p-8 z-50 pointer-events-none">
-        <div className="pointer-events-auto">
-          <Image
-            src="/images/Logo Negro 3 sin fondo chico.png"
-            alt="Logo Festival"
-            width={200}
-            height={200}
-            className="w-auto h-auto max-w-[250px] lg:max-w-[300px]"
-            priority
-          />
         </div>
       </div>
 
