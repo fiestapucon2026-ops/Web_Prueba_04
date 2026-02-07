@@ -78,6 +78,13 @@ export function TicketSelector({
     return () => clearInterval(t);
   }, []);
 
+  // Parpadeo cada 1 s para "¡ÚLTIMAS UNIDADES!" (apagar/encender)
+  const [lastUnitsBlink, setLastUnitsBlink] = useState(true);
+  useEffect(() => {
+    const t = setInterval(() => setLastUnitsBlink((v) => !v), 1000);
+    return () => clearInterval(t);
+  }, []);
+
   const handleSelectMain = (item: EntradasInventoryItem) => {
     const isSelected = cart.mainTicket?.ticket_type_id === item.ticket_type_id;
     if (isSelected) return;
@@ -204,13 +211,21 @@ export function TicketSelector({
                       <span className="text-xs text-white/80">(ingreso de 12:30 a 23:00 hrs)</span>
                     ))}
                 </div>
-                <span className="mt-1 block text-sm">${item.price.toLocaleString('es-CL')} CLP</span>
+                <span className="mt-1 block text-sm">
+                  {item.price === 0 ? (
+                    <span className="rounded bg-green-700/80 px-2 py-0.5 font-bold text-green-100">
+                      ¡HOY GRATIS!
+                    </span>
+                  ) : (
+                    `$${item.price.toLocaleString('es-CL')} CLP`
+                  )}
+                </span>
                 {isSoldOut && (
                   <span className="ml-2 rounded bg-red-900/60 px-2 py-0.5 text-xs font-medium text-red-200">
                     AGOTADOS
                   </span>
                 )}
-                {showLastUnits && (
+                {showLastUnits && lastUnitsBlink && (
                   <span className="ml-2 rounded bg-amber-600/70 px-2 py-0.5 text-xs font-medium text-amber-100">
                     ¡ÚLTIMAS UNIDADES!
                   </span>
@@ -287,13 +302,21 @@ export function TicketSelector({
                 <span className="font-semibold">
                   {item.name.replace(/^Estacionamiento\s+/, '')}
                 </span>
-                <span className="ml-2 text-sm">${item.price.toLocaleString('es-CL')} CLP</span>
+                <span className="ml-2 text-sm">
+                  {item.price === 0 ? (
+                    <span className="rounded bg-green-700/80 px-2 py-0.5 font-bold text-green-100">
+                      ¡HOY GRATIS!
+                    </span>
+                  ) : (
+                    `$${item.price.toLocaleString('es-CL')} CLP`
+                  )}
+                </span>
                 {isSoldOut && (
                   <span className="ml-2 rounded bg-red-900/60 px-2 py-0.5 text-xs font-medium text-red-200">
                     AGOTADOS
                   </span>
                 )}
-                {showLastUnits && (
+                {showLastUnits && lastUnitsBlink && (
                   <span className="ml-2 rounded bg-amber-600/70 px-2 py-0.5 text-xs font-medium text-amber-100">
                     ¡ÚLTIMAS UNIDADES!
                   </span>
@@ -344,13 +367,21 @@ export function TicketSelector({
                   }`}
                 >
                   <span className="font-semibold">{item.name}</span>
-                  <span className="ml-2 text-sm">${item.price.toLocaleString('es-CL')} CLP</span>
+                  <span className="ml-2 text-sm">
+                    {item.price === 0 ? (
+                      <span className="rounded bg-green-700/80 px-2 py-0.5 font-bold text-green-100">
+                        ¡HOY GRATIS!
+                      </span>
+                    ) : (
+                      `$${item.price.toLocaleString('es-CL')} CLP`
+                    )}
+                  </span>
                   {isSoldOut && (
                     <span className="ml-2 rounded bg-red-900/60 px-2 py-0.5 text-xs font-medium text-red-200">
                       AGOTADOS
                     </span>
                   )}
-                  {showLastUnits && !isDisabled && (
+                  {showLastUnits && !isDisabled && lastUnitsBlink && (
                     <span className="ml-2 rounded bg-amber-600/70 px-2 py-0.5 text-xs font-medium text-amber-100">
                       ¡ÚLTIMAS UNIDADES!
                     </span>
