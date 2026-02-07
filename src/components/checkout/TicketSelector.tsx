@@ -352,6 +352,7 @@ export function TicketSelector({
               const isSoldOut = item.available_stock < 1;
               const isDisabled = disabled || isSoldOut || promoBlockedByAge;
               const showLastUnits =
+                !item.name.includes('Promo') &&
                 !isSoldOut &&
                 item.fomo_threshold > 0 &&
                 (item.occupied_pct >= item.fomo_threshold || item.fomo_threshold >= 100);
