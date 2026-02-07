@@ -140,13 +140,15 @@ async function main() {
 
   // 3. Event days (upsert event_date + event_id)
   console.log('Días de evento...');
-  const eventDaysRows = EVENT_DATES.map((event_date) => ({
-    event_date,
-    event_id: eventIds[event_date] ?? null,
-  }));
+  const eventDaysRows: Array<{ event_date: string; event_id: string | null }> = EVENT_DATES.map(
+    (event_date) => ({
+      event_date,
+      event_id: eventIds[event_date] ?? null,
+    })
+  );
   const { data: upsertedDays, error: daysErr } = await supabase
     .from('event_days')
-    .upsert(eventDaysRows, { onConflict: ['event_date'], ignoreDuplicates: false })
+    .upsert(eventDaysRows, { onConflict: 'event_date', ignoreDuplicates: false })
     .select('id, event_date');
 
   if (daysErr) {
@@ -192,7 +194,7 @@ async function main() {
   }
 
   const { error: dailyErr } = await supabase.from('daily_inventory').upsert(dailyRows, {
-    onConflict: ['event_day_id', 'ticket_type_id'],
+    onConflict: 'event_day_id,ticket_type_id',
     ignoreDuplicates: false,
   });
   if (dailyErr) {
@@ -217,7 +219,7 @@ async function main() {
     }
   }
   const { error: invErr } = await supabase.from('inventory').upsert(inventoryRows, {
-    onConflict: ['event_id', 'ticket_type_id'],
+    onConflict: 'event_id,ticket_type_id',
     ignoreDuplicates: false,
   });
   if (invErr) {
