@@ -225,8 +225,11 @@ export function TicketSelector({
                     AGOTADOS
                   </span>
                 )}
-                {showLastUnits && lastUnitsBlink && (
-                  <span className="ml-2 rounded bg-amber-600/70 px-2 py-0.5 text-xs font-medium text-amber-100">
+                {showLastUnits && (
+                  <span
+                    className={`ml-2 inline-block rounded bg-amber-600/70 px-2 py-0.5 text-xs font-medium text-amber-100 transition-opacity ${lastUnitsBlink ? 'opacity-100' : 'opacity-0'}`}
+                    style={{ minWidth: '9.5rem' }}
+                  >
                     ¡ÚLTIMAS UNIDADES!
                   </span>
                 )}
@@ -316,8 +319,11 @@ export function TicketSelector({
                     AGOTADOS
                   </span>
                 )}
-                {showLastUnits && lastUnitsBlink && (
-                  <span className="ml-2 rounded bg-amber-600/70 px-2 py-0.5 text-xs font-medium text-amber-100">
+                {showLastUnits && (
+                  <span
+                    className={`ml-2 inline-block rounded bg-amber-600/70 px-2 py-0.5 text-xs font-medium text-amber-100 transition-opacity ${lastUnitsBlink ? 'opacity-100' : 'opacity-0'}`}
+                    style={{ minWidth: '9.5rem' }}
+                  >
                     ¡ÚLTIMAS UNIDADES!
                   </span>
                 )}
@@ -381,8 +387,11 @@ export function TicketSelector({
                       AGOTADOS
                     </span>
                   )}
-                  {showLastUnits && !isDisabled && lastUnitsBlink && (
-                    <span className="ml-2 rounded bg-amber-600/70 px-2 py-0.5 text-xs font-medium text-amber-100">
+                  {showLastUnits && !isDisabled && (
+                    <span
+                      className={`ml-2 inline-block rounded bg-amber-600/70 px-2 py-0.5 text-xs font-medium text-amber-100 transition-opacity ${lastUnitsBlink ? 'opacity-100' : 'opacity-0'}`}
+                      style={{ minWidth: '9.5rem' }}
+                    >
                       ¡ÚLTIMAS UNIDADES!
                     </span>
                   )}
