@@ -135,8 +135,8 @@ export async function POST(request: Request) {
         .eq('ticket_type_id', reqItem.ticket_type_id)
         .single();
 
-      const dailyPrice = dailyErr ? 0 : Number((dailyRow as { price?: number })?.price ?? 0);
-      if (!Number.isFinite(dailyPrice) || dailyPrice <= 0) {
+      const dailyPrice = dailyErr ? NaN : Number((dailyRow as { price?: number })?.price ?? 0);
+      if (!Number.isFinite(dailyPrice) || dailyPrice < 0) {
         return NextResponse.json(
           { error: 'Precio no configurado para esa fecha' },
           { status: 400 }

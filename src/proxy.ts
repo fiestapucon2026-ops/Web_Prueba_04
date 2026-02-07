@@ -24,7 +24,7 @@ function isRateLimited(ip: string, path: string): boolean {
   return entry.count > ADMIN_RATE_LIMIT;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   if (path.startsWith('/workers')) {

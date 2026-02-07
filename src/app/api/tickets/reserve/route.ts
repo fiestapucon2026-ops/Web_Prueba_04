@@ -45,8 +45,8 @@ export async function POST(request: Request) {
         .eq('event_day_id', eventDay.id)
         .eq('ticket_type_id', ticket_type_id)
         .single();
-      const dailyPrice = dailyErr ? 0 : Number((dailyRow as { price?: number })?.price ?? 0);
-      if (!Number.isFinite(dailyPrice) || dailyPrice <= 0) {
+      const dailyPrice = dailyErr ? NaN : Number((dailyRow as { price?: number })?.price ?? 0);
+      if (!Number.isFinite(dailyPrice) || dailyPrice < 0) {
         if (idempotencyKey) await supabase.from('idempotency_keys').delete().eq('key', idempotencyKey);
         return NextResponse.json(
           { error: 'Precio no configurado para esa fecha' },
