@@ -40,13 +40,19 @@ const EVENT_DATES: string[] = [
 const VENUE = 'Club de Rodeo de Pucón';
 const FOMO_100_DATE = '2026-02-28';
 
-type TypeKey = 'Familiar' | 'Todo el día' | 'Estacionamiento Familiar' | 'Estacionamiento Todo el día';
+type TypeKey =
+  | 'Familiar'
+  | 'Todo el día'
+  | 'Estacionamiento Familiar'
+  | 'Estacionamiento Todo el día'
+  | 'Promo 2x1 Cerveza Artesanal (2 x 500 cc)';
 
 const TICKET_TYPES: { name: TypeKey; base_price: number }[] = [
   { name: 'Familiar', base_price: 0 },
   { name: 'Todo el día', base_price: 5000 },
   { name: 'Estacionamiento Familiar', base_price: 5000 },
   { name: 'Estacionamiento Todo el día', base_price: 8000 },
+  { name: 'Promo 2x1 Cerveza Artesanal (2 x 500 cc)', base_price: 6000 },
 ];
 
 const STOCK: Record<TypeKey, number> = {
@@ -54,6 +60,7 @@ const STOCK: Record<TypeKey, number> = {
   'Todo el día': 500,
   'Estacionamiento Familiar': 200,
   'Estacionamiento Todo el día': 200,
+  'Promo 2x1 Cerveza Artesanal (2 x 500 cc)': 1000,
 };
 
 const PRICE: Record<TypeKey, number> = {
@@ -61,6 +68,7 @@ const PRICE: Record<TypeKey, number> = {
   'Todo el día': 5000,
   'Estacionamiento Familiar': 5000,
   'Estacionamiento Todo el día': 8000,
+  'Promo 2x1 Cerveza Artesanal (2 x 500 cc)': 6000,
 };
 
 const OVERBOOKING_PCT = 10;

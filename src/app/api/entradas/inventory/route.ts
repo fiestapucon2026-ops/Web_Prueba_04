@@ -3,12 +3,13 @@ import { NextResponse } from 'next/server';
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Solo estos tipos se exponen en /entradas (producción; sin VIP ni Promo). */
+/** Solo estos tipos se exponen en /entradas (producción; sin VIP). */
 const PRODUCTION_TICKET_TYPE_NAMES = new Set([
   'Familiar',
   'Todo el día',
   'Estacionamiento Familiar',
   'Estacionamiento Todo el día',
+  'Promo 2x1 Cerveza Artesanal (2 x 500 cc)',
 ]);
 
 export interface EntradasInventoryItem {

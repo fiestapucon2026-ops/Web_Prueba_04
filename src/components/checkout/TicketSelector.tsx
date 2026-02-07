@@ -53,7 +53,7 @@ function getParkingTickets(inventory: EntradasInventoryItem[]): EntradasInventor
 }
 
 function getPromoTickets(inventory: EntradasInventoryItem[]): EntradasInventoryItem[] {
-  return []; // Producción: sin promos; la API ya no devuelve tipos Promo.
+  return inventory.filter((i) => i.name.includes('Promo'));
 }
 
 export function TicketSelector({
