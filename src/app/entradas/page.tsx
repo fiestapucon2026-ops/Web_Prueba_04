@@ -163,7 +163,7 @@ export default function EntradasPage() {
 
   const canProceedToForm =
     Boolean(cart.mainTicket) &&
-    (cart.mainTicket.name === 'Familiar' ? cart.parking?.name === 'Estacionamiento Familiar' : true);
+    (cart.mainTicket?.name === 'Familiar' ? cart.parking?.name === 'Estacionamiento Familiar' : true);
 
   return (
     <div className="relative min-h-screen text-white overflow-hidden">
