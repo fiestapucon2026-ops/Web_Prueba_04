@@ -180,7 +180,7 @@ export function TicketSelector({
             const showLastUnits =
               !isSoldOut &&
               item.fomo_threshold > 0 &&
-              item.occupied_pct >= item.fomo_threshold;
+              (item.occupied_pct >= item.fomo_threshold || item.fomo_threshold >= 100);
             return (
               <button
                 key={item.ticket_type_id}
@@ -269,7 +269,7 @@ export function TicketSelector({
             const showLastUnits =
               !isSoldOut &&
               item.fomo_threshold > 0 &&
-              item.occupied_pct >= item.fomo_threshold;
+              (item.occupied_pct >= item.fomo_threshold || item.fomo_threshold >= 100);
             return (
               <button
                 key={item.ticket_type_id}
@@ -325,7 +325,7 @@ export function TicketSelector({
               const showLastUnits =
                 !isSoldOut &&
                 item.fomo_threshold > 0 &&
-                item.occupied_pct >= item.fomo_threshold;
+                (item.occupied_pct >= item.fomo_threshold || item.fomo_threshold >= 100);
               const showPromoBlink = !isSelected && !isDisabled;
               return (
                 <button
