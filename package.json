@@ -11,7 +11,8 @@
     "verify:api": "node scripts/verify-api.js",
     "verify:tickets-qr": "node scripts/verify-tickets-qr.js",
     "check:env": "node scripts/check-env.js",
-    "db:seed": "npx tsx supabase/seed.ts"
+    "db:seed": "npx tsx supabase/seed.ts",
+    "db:update-production": "npx tsx scripts/update-production-inventory.ts"
   },
   "dependencies": {
     "@mercadopago/sdk-react": "^1.0.7",
@@ -38,6 +39,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.2.4",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
     "tailwindcss": "^4",

@@ -3,6 +3,14 @@ import { NextResponse } from 'next/server';
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Solo estos tipos se exponen en /entradas (producción; sin VIP ni Promo). */
+const PRODUCTION_TICKET_TYPE_NAMES = new Set([
+  'Familiar',
+  'Todo el día',
+  'Estacionamiento Familiar',
+  'Estacionamiento Todo el día',
+]);
+
 export interface EntradasInventoryItem {
   ticket_type_id: string;
   name: string;
@@ -125,9 +133,12 @@ export async function GET(request: Request) {
           ? Math.min(100, Math.round((sold / nominal_stock) * 100))
           : 0;
 
+      const typeName = name ?? 'Entrada';
+      if (!PRODUCTION_TICKET_TYPE_NAMES.has(typeName)) continue;
+
       result.push({
         ticket_type_id: row.ticket_type_id,
-        name: name ?? 'Entrada',
+        name: typeName,
         price: Number(row.price) || 0,
         nominal_stock,
         fomo_threshold: Number(row.fomo_threshold) || 0,

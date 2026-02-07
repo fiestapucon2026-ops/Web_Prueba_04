@@ -40,15 +40,20 @@ export type TicketSelectorProps = {
 };
 
 function getMainTickets(inventory: EntradasInventoryItem[]): EntradasInventoryItem[] {
-  return inventory.filter((i) => i.name === 'Familiar' || i.name === 'Todo el Día');
+  return inventory.filter(
+    (i) => i.name === 'Familiar' || i.name === 'Todo el Día' || i.name === 'Todo el día'
+  );
 }
 
 function getParkingTickets(inventory: EntradasInventoryItem[]): EntradasInventoryItem[] {
-  return inventory.filter((i) => i.name === 'Estac. Normal' || i.name === 'Estac. VIP');
+  return inventory.filter(
+    (i) =>
+      i.name === 'Estacionamiento Familiar' || i.name === 'Estacionamiento Todo el día'
+  );
 }
 
 function getPromoTickets(inventory: EntradasInventoryItem[]): EntradasInventoryItem[] {
-  return inventory.filter((i) => i.name.includes('Promo'));
+  return []; // Producción: sin promos; la API ya no devuelve tipos Promo.
 }
 
 export function TicketSelector({
@@ -192,12 +197,12 @@ export function TicketSelector({
               >
                 <div className="flex flex-col items-start gap-0.5">
                   <span className="font-semibold">{item.name}</span>
-                  {item.name === 'Familiar' && (
+                  {(item.name === 'Familiar' && (
                     <span className="text-xs text-white/80">(Ingreso de 12:30 a 17:00 hrs)</span>
-                  )}
-                  {item.name === 'Todo el Día' && (
-                    <span className="text-xs text-white/80">(ingreso de 12:30 a 23:00 hrs)</span>
-                  )}
+                  )) ||
+                    ((item.name === 'Todo el Día' || item.name === 'Todo el día') && (
+                      <span className="text-xs text-white/80">(ingreso de 12:30 a 23:00 hrs)</span>
+                    ))}
                 </div>
                 <span className="mt-1 block text-sm">${item.price.toLocaleString('es-CL')} CLP</span>
                 {isSoldOut && (
@@ -279,7 +284,9 @@ export function TicketSelector({
                       : 'border-white/30 bg-white/5 text-white hover:border-white/50'
                 }`}
               >
-                <span className="font-semibold">{item.name.replace('Estac. ', '')}</span>
+                <span className="font-semibold">
+                  {item.name.replace(/^Estacionamiento\s+/, '')}
+                </span>
                 <span className="ml-2 text-sm">${item.price.toLocaleString('es-CL')} CLP</span>
                 {isSoldOut && (
                   <span className="ml-2 rounded bg-red-900/60 px-2 py-0.5 text-xs font-medium text-red-200">
