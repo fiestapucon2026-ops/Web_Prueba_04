@@ -66,6 +66,11 @@ export function TicketSelector({
   const mainTickets = getMainTickets(inventoryData);
   const parkingTickets = getParkingTickets(inventoryData);
   const promoTickets = getPromoTickets(inventoryData);
+  const parkingTicketsForMain = !cart.mainTicket
+    ? []
+    : cart.mainTicket.name === 'Familiar'
+      ? parkingTickets.filter((p) => p.name === 'Estacionamiento Familiar')
+      : parkingTickets.filter((p) => p.name === 'Estacionamiento Todo el día');
 
   // Declaración mayoría de edad para promo (alcohol): null = no preguntado, true = sí, false = no
   const [legalAgeForPromo, setLegalAgeForPromo] = useState<null | true | false>(null);
@@ -88,9 +93,18 @@ export function TicketSelector({
   const handleSelectMain = (item: EntradasInventoryItem) => {
     const isSelected = cart.mainTicket?.ticket_type_id === item.ticket_type_id;
     if (isSelected) return;
+    const isFamiliar = item.name === 'Familiar';
+    const estacFamiliar = parkingTickets.find((p) => p.name === 'Estacionamiento Familiar');
+    let newParking = cart.parking;
+    if (isFamiliar && estacFamiliar && estacFamiliar.available_stock >= 1) {
+      newParking = { ticket_type_id: estacFamiliar.ticket_type_id, name: estacFamiliar.name, price: estacFamiliar.price };
+    } else if (!isFamiliar && cart.parking?.name === 'Estacionamiento Familiar') {
+      newParking = null;
+    }
     onCartChange({
       ...cart,
       mainTicket: { ticket_type_id: item.ticket_type_id, name: item.name, price: item.price, quantity: 1 },
+      parking: newParking,
     });
   };
 
@@ -264,24 +278,31 @@ export function TicketSelector({
         )}
       </div>
 
-      {/* Estacionamiento: Normal, VIP o Sin vehículo (solo uno) */}
+      {/* Estacionamiento: según entrada principal. Familiar = obligatorio Estac. Familiar. Todo el día = Sin vehículo o Estac. Todo el día */}
       <div>
-        <p className="mb-2 text-sm font-medium text-white/90">Estacionamiento</p>
+        <p className="mb-2 text-sm font-medium text-white/90">
+          Estacionamiento
+          {cart.mainTicket?.name === 'Familiar' && (
+            <span className="ml-2 text-xs text-amber-200">(obligatorio con entrada Familiar)</span>
+          )}
+        </p>
         <div className="flex flex-wrap gap-3">
-          {/* Opción virtual: Sin vehículo (sin valor) */}
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => handleSelectParking(null)}
-            className={`rounded-lg border-2 px-4 py-3 text-left transition-colors ${
-              cart.parking === null
-                ? 'border-[#39ff14] bg-[#39ff14]/20 text-white'
-                : 'border-white/30 bg-white/5 text-white hover:border-white/50'
-            }`}
-          >
-            <span className="font-semibold">Sin vehículo</span>
-          </button>
-          {parkingTickets.map((item) => {
+          {/* Sin vehículo: solo si entrada es Todo el día (ya paga acceso; evita total $0 en MP) */}
+          {cart.mainTicket && (cart.mainTicket.name === 'Todo el Día' || cart.mainTicket.name === 'Todo el día') && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => handleSelectParking(null)}
+              className={`rounded-lg border-2 px-4 py-3 text-left transition-colors ${
+                cart.parking === null
+                  ? 'border-[#39ff14] bg-[#39ff14]/20 text-white'
+                  : 'border-white/30 bg-white/5 text-white hover:border-white/50'
+              }`}
+            >
+              <span className="font-semibold">Sin vehículo</span>
+            </button>
+          )}
+          {parkingTicketsForMain.map((item) => {
             const isSelected = cart.parking?.ticket_type_id === item.ticket_type_id;
             const isSoldOut = item.available_stock < 1;
             const showLastUnits =
@@ -331,7 +352,11 @@ export function TicketSelector({
             );
           })}
         </div>
-        <p className="mt-1 text-xs text-white/60">Sólo puedes comprar un estacionamiento.</p>
+        <p className="mt-1 text-xs text-white/60">
+          {cart.mainTicket?.name === 'Familiar'
+            ? 'Con entrada Familiar el estacionamiento Familiar es obligatorio (evita pago $0).'
+            : 'Sólo puedes comprar un estacionamiento.'}
+        </p>
       </div>
 
       {/* Promos (opcional): máx. 1 por entrada; declaración mayoría de edad obligatoria */}
