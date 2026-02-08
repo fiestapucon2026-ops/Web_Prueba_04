@@ -279,6 +279,11 @@ export default function EntradasPage() {
             >
               ← Volver
             </button>
+            {selectedDate && (
+              <p className="mb-3 text-base font-medium text-amber-200" aria-live="polite">
+                Fecha elegida: {formatDateLabel(selectedDate)}
+              </p>
+            )}
             <h3 className="mb-4 text-lg font-semibold">Datos para tu entrada</h3>
             {purchaseError && (
               <p className="mb-4 text-sm text-red-400">{purchaseError}</p>
