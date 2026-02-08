@@ -91,7 +91,7 @@ export function TicketCard({ ticket }: TicketCardProps) {
             )}
             {isFamiliar && (
               <p className="mt-3 rounded-md bg-amber-200 px-3 py-2 text-sm font-semibold text-amber-900">
-                ⚠️ Válido hasta 17:00
+                ⚠️ Entrada válida hasta las 17:00 hrs.
               </p>
             )}
           </div>

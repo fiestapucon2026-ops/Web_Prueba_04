@@ -88,8 +88,6 @@ const TicketPDFPage: React.FC<TicketPageProps> = ({ order, qrDataUrl }) => {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   });
   const venue =
     order.inventory.event.venue?.replace(/Camping Pucón/g, 'Club de Rodeo Pucón') ??
@@ -120,13 +118,20 @@ const TicketPDFPage: React.FC<TicketPageProps> = ({ order, qrDataUrl }) => {
           <Text style={styles.value}>{ticketTypeName}</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Fecha y Hora:</Text>
+          <Text style={styles.label}>Fecha:</Text>
           <Text style={styles.value}>{eventDate}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Lugar:</Text>
           <Text style={styles.value}>{venue}</Text>
         </View>
+        {(ticketTypeName === 'Familiar' || ticketTypeName === 'Estacionamiento Familiar') && (
+          <View style={{ marginTop: 10, paddingVertical: 6, paddingHorizontal: 8, backgroundColor: '#fef3c7' }}>
+            <Text style={{ fontSize: 11, color: '#92400e', fontWeight: 'bold' }}>
+              ⚠️ Entrada válida hasta las 17:00 hrs.
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.section}>
