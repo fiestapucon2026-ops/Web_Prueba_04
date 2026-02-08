@@ -196,6 +196,14 @@ export async function POST(request: Request) {
       request,
       process.env.NEXT_PUBLIC_BASE_URL || 'https://www.festivalpucon.cl'
     );
+    const baseUrlTrimmed = baseUrl.trim().replace(/\/$/, '');
+    const isLocalRequest =
+      !baseUrlTrimmed.startsWith('https://') ||
+      baseUrlTrimmed.includes('localhost') ||
+      /127\.0\.0\.1/.test(baseUrlTrimmed);
+    const mpBaseUrl = isLocalRequest
+      ? (process.env.NEXT_PUBLIC_BASE_URL?.trim() || 'https://www.festivalpucon.cl').replace(/\/$/, '')
+      : baseUrlTrimmed;
 
     const eventsData = inventory.events;
     const event = Array.isArray(eventsData) ? eventsData[0] : eventsData;
@@ -220,11 +228,11 @@ export async function POST(request: Request) {
           ],
           payer: { email: payer_email },
           back_urls: {
-            success: `${baseUrl}/success`,
-            failure: `${baseUrl}/failure`,
-            pending: `${baseUrl}/pending`,
+            success: `${mpBaseUrl}/success`,
+            failure: `${mpBaseUrl}/failure`,
+            pending: `${mpBaseUrl}/pending`,
           },
-          notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+          notification_url: `${mpBaseUrl}/api/webhooks/mercadopago`,
           auto_return: 'approved',
           external_reference: externalReference,
         },

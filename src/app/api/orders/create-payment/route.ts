@@ -33,6 +33,14 @@ export async function POST(request: Request) {
       request,
       process.env.NEXT_PUBLIC_BASE_URL || 'https://www.festivalpucon.cl'
     );
+    const baseUrlTrimmed = baseUrl.trim().replace(/\/$/, '');
+    const isLocalRequest =
+      !baseUrlTrimmed.startsWith('https://') ||
+      baseUrlTrimmed.includes('localhost') ||
+      /127\.0\.0\.1/.test(baseUrlTrimmed);
+    const mpBaseUrl = isLocalRequest
+      ? (process.env.NEXT_PUBLIC_BASE_URL?.trim() || 'https://www.festivalpucon.cl').replace(/\/$/, '')
+      : baseUrlTrimmed;
 
     const { data: orders, error: ordersErr } = await supabase
       .from('orders')
@@ -52,7 +60,7 @@ export async function POST(request: Request) {
       if (paid) {
         return NextResponse.json({
           status: 'approved',
-          redirect_url: `${baseUrl}/success?external_reference=${external_reference}`,
+          redirect_url: `${mpBaseUrl}/success?external_reference=${external_reference}`,
         });
       }
       return NextResponse.json(
@@ -96,7 +104,7 @@ export async function POST(request: Request) {
       payment_method_id: payment_method_id ?? 'visa',
       payer: { email: payer_email },
       external_reference,
-      notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+      notification_url: `${mpBaseUrl}/api/webhooks/mercadopago`,
       installments: 1,
       statement_descriptor: 'FESTIVAL PUCON',
     };
@@ -108,11 +116,11 @@ export async function POST(request: Request) {
 
     let redirectUrl: string;
     if (status === 'approved') {
-      redirectUrl = `${baseUrl}/success?external_reference=${external_reference}`;
+      redirectUrl = `${mpBaseUrl}/success?external_reference=${external_reference}`;
     } else if (status === 'pending' || status === 'in_process') {
-      redirectUrl = `${baseUrl}/pending?external_reference=${external_reference}`;
+      redirectUrl = `${mpBaseUrl}/pending?external_reference=${external_reference}`;
     } else {
-      redirectUrl = `${baseUrl}/failure?external_reference=${external_reference}`;
+      redirectUrl = `${mpBaseUrl}/failure?external_reference=${external_reference}`;
     }
 
     if (idempotencyKey) {

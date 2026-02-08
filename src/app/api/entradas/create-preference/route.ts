@@ -204,9 +204,17 @@ export async function POST(request: Request) {
       request,
       process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
     );
-    const successUrl = `${baseUrl}/success?external_reference=${externalReference}`;
-    const failureUrl = `${baseUrl}/failure`;
-    const pendingUrl = `${baseUrl}/pending`;
+    const baseUrlTrimmed = baseUrl.trim().replace(/\/$/, '');
+    const isLocalRequest =
+      !baseUrlTrimmed.startsWith('https://') ||
+      baseUrlTrimmed.includes('localhost') ||
+      /127\.0\.0\.1/.test(baseUrlTrimmed);
+    const mpBaseUrl = isLocalRequest
+      ? (process.env.NEXT_PUBLIC_BASE_URL?.trim() || 'https://www.festivalpucon.cl').replace(/\/$/, '')
+      : baseUrlTrimmed;
+    const successUrl = `${mpBaseUrl}/success?external_reference=${externalReference}`;
+    const failureUrl = `${mpBaseUrl}/failure`;
+    const pendingUrl = `${mpBaseUrl}/pending`;
 
     const { preferenceClient } = requireMercadoPagoClient();
     const mpItems = lineItems.map((li) => ({
@@ -219,9 +227,9 @@ export async function POST(request: Request) {
 
     let initPoint: string;
     const isProduction =
-      baseUrl.startsWith('https://') &&
-      !baseUrl.includes('localhost') &&
-      /festivalpucon/i.test(baseUrl);
+      mpBaseUrl.startsWith('https://') &&
+      !mpBaseUrl.includes('localhost') &&
+      /festivalpucon/i.test(mpBaseUrl);
     const mpBody = {
       items: mpItems,
       payer: { email: customer.email },
@@ -230,7 +238,7 @@ export async function POST(request: Request) {
         failure: failureUrl,
         pending: pendingUrl,
       },
-      notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+      notification_url: `${mpBaseUrl}/api/webhooks/mercadopago`,
       external_reference: externalReference,
       ...(isProduction ? { auto_return: 'approved' as const } : {}),
     };
