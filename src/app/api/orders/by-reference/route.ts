@@ -148,12 +148,43 @@ export async function GET(request: Request) {
         }
 
         const paymentId = String(first.id ?? '');
-        const { data: updatedRows, error: updateErr } = await supabase
+        let updatedRows: { id: string }[] | null = null;
+        let updateErr: { code?: string } | null = null;
+
+        const bulkResult = await supabase
           .from('orders')
           .update({ status: 'paid', mp_payment_id: paymentId })
           .eq('external_reference', externalReference)
           .eq('status', 'pending')
           .select('id');
+
+        updateErr = bulkResult.error;
+        updatedRows = bulkResult.data;
+
+        // Si falla por UNIQUE(mp_payment_id) con varias órdenes, actualizar en dos pasos: todas a paid, luego una con mp_payment_id.
+        if (updateErr?.code === '23505') {
+          const { data: pendingOrders } = await supabase
+            .from('orders')
+            .select('id')
+            .eq('external_reference', externalReference)
+            .eq('status', 'pending')
+            .order('id', { ascending: true });
+
+          if (pendingOrders?.length) {
+            const ids = pendingOrders.map((o) => (o as { id: string }).id);
+            await supabase
+              .from('orders')
+              .update({ status: 'paid' })
+              .eq('external_reference', externalReference)
+              .eq('status', 'pending');
+            await supabase
+              .from('orders')
+              .update({ mp_payment_id: paymentId })
+              .eq('id', ids[0]);
+            updatedRows = pendingOrders as { id: string }[];
+            updateErr = null;
+          }
+        }
 
         if (updateErr) {
           console.error('[by-reference] Fallback UPDATE error:', updateErr);

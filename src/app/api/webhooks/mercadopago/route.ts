@@ -38,13 +38,21 @@ function timingSafeEqualHex(aHex: string, bHex: string): boolean {
   }
 }
 
-function isTsWithinTolerance(tsRaw: string, toleranceSeconds = 300): boolean {
-  // Docs show ts=1704908010 (seconds). Support seconds and ms.
+function isTsWithinTolerance(tsRaw: string, toleranceSeconds = 600): boolean {
+  // MP docs: ts puede ser segundos (ej. 1704908010) o ms. Tolerancia 10 min para latencia/reintentos.
   const tsNum = Number(tsRaw);
   if (!Number.isFinite(tsNum) || tsNum <= 0) return false;
   const tsMs = tsRaw.length >= 13 ? tsNum : tsNum * 1000;
   const nowMs = Date.now();
   return Math.abs(nowMs - tsMs) <= toleranceSeconds * 1000;
+}
+
+function buildManifest(dataId: string, xRequestId: string, ts: string): string {
+  let manifest = '';
+  if (dataId) manifest += `id:${dataId};`;
+  if (xRequestId) manifest += `request-id:${xRequestId};`;
+  if (ts) manifest += `ts:${ts};`;
+  return manifest;
 }
 
 function verifyMercadoPagoSignature(
@@ -68,24 +76,23 @@ function verifyMercadoPagoSignature(
     return { ok: false, reason: 'Timestamp fuera de tolerancia' };
   }
 
-  // Mercado Pago: manifest = id:[data.id];request-id:[x-request-id];ts:[ts];
-  // data.id puede venir en query (notificación) o en body (algunos envíos MP).
   const url = new URL(request.url);
-  const dataIdQuery = url.searchParams.get('data.id') || '';
-  const dataIdBody =
-    dataIdFromBody !== undefined && dataIdFromBody !== null
-      ? String(dataIdFromBody).toLowerCase()
-      : '';
-  const dataId = (dataIdQuery || dataIdBody || '').toLowerCase();
+  const dataIdQuery = (url.searchParams.get('data.id') ?? '').trim();
+  const dataIdBodyRaw =
+    dataIdFromBody !== undefined && dataIdFromBody !== null ? String(dataIdFromBody).trim() : '';
+  const dataIdRaw = dataIdQuery || dataIdBodyRaw;
+  const dataIdLower = dataIdRaw.toLowerCase();
 
-  let manifest = '';
-  if (dataId) manifest += `id:${dataId};`;
-  if (xRequestId) manifest += `request-id:${xRequestId};`;
-  if (ts) manifest += `ts:${ts};`;
+  // MP: "if data.id is alphanumeric, it must be sent in lowercase". Probar ambas variantes.
+  const candidates = dataIdRaw ? [dataIdRaw, dataIdLower] : [''];
+  for (const dataId of candidates) {
+    const manifest = buildManifest(dataId, xRequestId, ts);
+    if (!manifest) continue;
+    const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
+    if (timingSafeEqualHex(expected, v1)) return { ok: true };
+  }
 
-  const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
-  const ok = timingSafeEqualHex(expected, v1);
-  return ok ? { ok: true } : { ok: false, reason: 'Firma inválida' };
+  return { ok: false, reason: 'Firma inválida' };
 }
 
 export async function POST(request: Request) {
