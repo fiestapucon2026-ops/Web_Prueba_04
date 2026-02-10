@@ -224,21 +224,42 @@ export default function PantallaInicio() {
 
             {/* Columna Derecha - Mapa */}
             <div className="bg-black border border-[#737373] rounded-lg p-6 lg:p-8 shadow-[0_4px_12px_#a6a6a6] h-full flex flex-col">
-              <div className="space-y-4 h-full flex flex-col">
+              <div className="space-y-4 flex flex-col">
                 <h3 className="text-2xl font-semibold text-white flex items-center gap-2">
                   <span className="text-xl">📍</span>
                   Mapa
                 </h3>
-                <div className="w-full flex-1 min-h-[320px] rounded-lg overflow-hidden border border-[#737373] bg-[#1a1a1a]">
+                <div className="w-full rounded-lg overflow-hidden border border-[#737373] bg-[#1a1a1a]" style={{ height: 400 }}>
                   <iframe
                     src="https://www.openstreetmap.org/export/embed.html?bbox=-71.93%2C-39.32%2C-71.90%2C-39.28&layer=mapnik&marker=-39.303889%2C-71.917222"
-                    className="w-full h-full min-h-[320px]"
-                    style={{ border: 0 }}
-                    loading="lazy"
+                    width="100%"
+                    height="400"
+                    style={{ border: 0, display: 'block' }}
+                    loading="eager"
                     referrerPolicy="no-referrer"
                     title="Ubicación Festival"
                   />
                 </div>
+                <p className="text-gray-400 text-sm">
+                  Si no ves el mapa:{' '}
+                  <a
+                    href="https://www.openstreetmap.org/?mlat=-39.303889&mlon=-71.917222#map=15/-39.303889/-71.917222"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-red-400 hover:text-red-300 underline"
+                  >
+                    Abrirlo en OpenStreetMap
+                  </a>
+                  {' · '}
+                  <a
+                    href="https://www.google.com/maps?q=-39.303889,-71.917222"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-red-400 hover:text-red-300 underline"
+                  >
+                    Abrirlo en Google Maps
+                  </a>
+                </p>
               </div>
             </div>
           </div>
