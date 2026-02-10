@@ -229,15 +229,13 @@ export default function PantallaInicio() {
                   <span className="text-xl">📍</span>
                   Mapa
                 </h3>
-                <div className="w-full flex-1 rounded-lg overflow-hidden border border-[#737373]">
+                <div className="w-full flex-1 min-h-[320px] rounded-lg overflow-hidden border border-[#737373] bg-[#1a1a1a]">
                   <iframe
-                    src="https://www.google.com/maps?q=-39.303889,-71.917222&hl=es&z=15&output=embed"
-                    width="100%"
-                    height="100%"
+                    src="https://www.openstreetmap.org/export/embed.html?bbox=-71.93%2C-39.32%2C-71.90%2C-39.28&layer=mapnik&marker=-39.303889%2C-71.917222"
+                    className="w-full h-full min-h-[320px]"
                     style={{ border: 0 }}
-                    allowFullScreen
                     loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
+                    referrerPolicy="no-referrer"
                     title="Ubicación Festival"
                   />
                 </div>
