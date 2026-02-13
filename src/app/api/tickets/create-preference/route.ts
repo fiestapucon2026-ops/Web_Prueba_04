@@ -228,7 +228,7 @@ export async function POST(request: Request) {
           ],
           payer: { email: payer_email },
           back_urls: {
-            success: `${mpBaseUrl}/success`,
+            success: `${mpBaseUrl}/success?external_reference=${externalReference}`,
             failure: `${mpBaseUrl}/failure`,
             pending: `${mpBaseUrl}/pending`,
           },

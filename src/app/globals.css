@@ -28,3 +28,13 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* CTA Un solo día: cambio de tamaño y brillo */
+@keyframes unsolodia-pulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.05); filter: brightness(1.15); }
+}
+.animate-unsolodia-pulse {
+  animation: unsolodia-pulse 1.5s ease-in-out infinite;
+  font-size: clamp(1rem, 4vw, 1.35rem);
+}
