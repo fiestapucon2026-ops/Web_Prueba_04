@@ -9,7 +9,7 @@ import type { EntradasCart } from '@/components/checkout/TicketSelector';
 
 const ROCK_DATE = '2026-02-20';
 const CARD_STYLE = {
-  backgroundColor: '#737373',
+  backgroundColor: 'rgba(115, 115, 115, 0.9)',
   boxShadow: '0 4px 14px #d9d9d9',
 };
 
@@ -156,19 +156,6 @@ export default function UnSoloDiaComprarPage() {
         />
       </div>
 
-      <div className="absolute top-0 right-0 p-6 lg:p-8 z-50 pointer-events-none">
-        <div className="pointer-events-auto">
-          <Image
-            src="/images/Logo Negro 3 sin fondo chico.png"
-            alt="Logo Festival"
-            width={200}
-            height={200}
-            className="w-auto h-auto max-w-[250px] lg:max-w-[300px]"
-            priority
-          />
-        </div>
-      </div>
-
       <main className="relative z-10 mx-auto max-w-2xl px-4 pt-24 pb-12 md:px-6 md:pt-28">
         <Link
           href="/unsolodia"
@@ -212,21 +199,11 @@ export default function UnSoloDiaComprarPage() {
           <div className="rounded-xl p-4 md:p-6 text-white" style={CARD_STYLE}>
             <button
               type="button"
-              className="mb-4 w-full text-center text-lg font-semibold cursor-default"
-              style={{ color: '#ffbd59' }}
-            >
-              Último paso !! … para llegar al Festival Pucón 2026
-            </button>
-            <button
-              type="button"
               onClick={handleVolverToTickets}
               className="mb-4 rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 transition-colors"
             >
               ← Volver
             </button>
-            <p className="mb-3 text-base font-medium text-amber-200" aria-live="polite">
-              Viernes 20 de febrero 2026 — Club de Rodeo de Pucón
-            </p>
             <h3 className="mb-4 text-lg font-semibold">Datos para tu entrada</h3>
             {purchaseError && (
               <p className="mb-4 text-sm text-red-400">{purchaseError}</p>
