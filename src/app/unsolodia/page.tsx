@@ -28,15 +28,12 @@ export default function UnSoloDiaPage() {
 
       <main className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 pt-24 pb-12 text-center">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 drop-shadow-lg">
-          PUCÓN ROCK LEGENDS 2026
-        </h1>
-        <p className="text-xl sm:text-2xl text-white/95 mb-3">
           GABRIEL MARIÁN (La ex voz de Rata Blanca VII)
-        </p>
-        <p className="text-lg sm:text-xl text-amber-200/90 mb-3 font-semibold">
+        </h1>
+        <p className="text-[1.9rem] sm:text-[2.3rem] text-[#ff3131] mb-3 font-semibold animate-unsolodia-blink">
           VIERNES 20 DE FEBRERO A PARTIR DE LAS 13:30
         </p>
-        <p className="text-base sm:text-lg text-white/80 mb-8">
+        <p className="text-[1.3rem] sm:text-[1.45rem] text-white/80 mb-8">
           Lugar: Club de Rodeo Pucon
         </p>
         <Link
