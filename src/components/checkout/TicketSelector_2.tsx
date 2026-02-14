@@ -159,7 +159,7 @@ export function TicketSelector_2({
   const promoSoldOut = !promoItem || promoItem.available_stock < 1;
 
   return (
-    <div className="space-y-6 text-white">
+    <div className="space-y-6 text-white font-semibold">
       <h3 className="text-lg font-semibold">
         Elige tus tickets para el {DATE_LABEL}
       </h3>

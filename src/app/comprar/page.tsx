@@ -157,15 +157,17 @@ export default function ComprarPage() {
       </div>
 
       <main className="relative z-10 mx-auto max-w-xl px-4 pt-20 pb-10 md:px-5 md:pt-24">
-        <Link
-          href="/"
-          className="inline-block mb-4 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20"
-        >
-          ← Volver
-        </Link>
-
         {step === 1 && (
-          <div className="rounded-xl p-3 md:p-4 text-white" style={CARD_STYLE}>
+          <div className="rounded-xl p-3 md:p-4 text-white font-semibold" style={CARD_STYLE}>
+            <div className="mb-3">
+              <Link
+                href="/"
+                className="inline-block rounded-lg px-4 py-2 text-sm font-bold text-black transition-colors hover:opacity-95"
+                style={{ backgroundColor: '#ffd21f', border: '2px solid #1fff93' }}
+              >
+                ← Volver al inicio
+              </Link>
+            </div>
             {inventoryLoading && (
               <p className="text-center text-white/70">Cargando entradas...</p>
             )}
