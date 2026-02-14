@@ -1,5 +1,5 @@
-import PantallaInicio from '@/components/pantalla-inicio/PantallaInicio';
+import RockLegendsHome from '@/components/rock-legends/RockLegendsHome';
 
 export default function Home() {
-  return <PantallaInicio />;
+  return <RockLegendsHome />;
 }
