@@ -45,5 +45,5 @@ body {
   50%, 100% { opacity: 0; }
 }
 .animate-unsolodia-blink {
-  animation: unsolodia-blink 1s linear infinite;
+  animation: unsolodia-blink 2s linear infinite;
 }

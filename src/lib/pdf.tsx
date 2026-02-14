@@ -83,6 +83,8 @@ interface TicketPageProps {
 
 const TicketPDFPage: React.FC<TicketPageProps> = ({ order, qrDataUrl }) => {
   const eventName = order.inventory.event.name;
+  const isRockLegendsDate = new Date(order.inventory.event.date).toISOString().startsWith('2026-02-20');
+  const displayEventName = isRockLegendsDate ? 'PUCÓN ROCK LEGENDS 2026' : eventName;
   const ticketTypeName = order.inventory.ticket_type.name;
   const eventDate = new Date(order.inventory.event.date).toLocaleDateString('es-CL', {
     year: 'numeric',
@@ -104,14 +106,15 @@ const TicketPDFPage: React.FC<TicketPageProps> = ({ order, qrDataUrl }) => {
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
         <Text style={styles.title}>Festival Pucón 2026</Text>
-        <Text style={styles.subtitle}>Ticket de Entrada</Text>
+        {isRockLegendsDate && <Text style={styles.title}>PUCÓN ROCK LEGENDS 2026</Text>}
+        <Text style={styles.subtitle}>QR Ticket de Entrada</Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Información del Evento</Text>
         <View style={styles.row}>
           <Text style={styles.label}>Evento:</Text>
-          <Text style={styles.value}>{eventName}</Text>
+          <Text style={styles.value}>{displayEventName}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Tipo de Ticket:</Text>
