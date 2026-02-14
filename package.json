@@ -12,7 +12,8 @@
     "verify:tickets-qr": "node scripts/verify-tickets-qr.js",
     "check:env": "node scripts/check-env.js",
     "db:seed": "npx tsx supabase/seed.ts",
-    "db:update-production": "npx tsx scripts/update-production-inventory.ts"
+    "db:update-production": "npx tsx scripts/update-production-inventory.ts",
+    "db:seed-rock-legends": "npx tsx scripts/seed-rock-legends.ts"
   },
   "dependencies": {
     "@mercadopago/sdk-react": "^1.0.7",

@@ -27,18 +27,7 @@ export default function PantallaInicio() {
         {/* Logo redondo: centrado en el ancho, bajo el volcán, arriba de "Festival Pucón 2026". Espacio entre logo y frase reservado para futuro botón "Compra tus entradas". */}
         <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-center z-40 pointer-events-none pb-4">
           <div className="w-full flex flex-col items-center justify-center pointer-events-auto">
-            {/* Logo redondo, siempre al medio del ancho */}
-            <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 lg:w-80 lg:h-80 rounded-full overflow-hidden flex-shrink-0 border-2 border-black/20 shadow-lg">
-              <Image
-                src="/images/Logo Negro 3 sin fondo chico.png"
-                alt="Logo Festival"
-                width={200}
-                height={200}
-                className="w-full h-full object-cover"
-                priority
-              />
-            </div>
-            {/* Espacio reservado para futuro botón "Compra tus entradas" */}
+            {/* Espacio superior sin logo */}
             <div className="h-14 sm:h-16 md:h-20" aria-hidden />
             {/* Frase "Festival Pucón 2026" */}
             <div className="w-3/4 flex items-center justify-center">
@@ -51,15 +40,6 @@ export default function PantallaInicio() {
                 priority
               />
             </div>
-          </div>
-          {/* Botón "…cómo llegar" */}
-          <div className="mt-4 pointer-events-auto">
-            <a
-              href="#ubicacion"
-              className="inline-block bg-black text-[#ffadad] border border-[#ff2828] px-6 py-3 rounded-lg shadow-[0_4px_12px_#ffd6d6] hover:bg-[#1a1a1a] transition-colors duration-200 font-medium"
-            >
-              …cómo llegar
-            </a>
           </div>
         </div>
       </div>

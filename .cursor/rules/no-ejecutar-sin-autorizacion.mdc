@@ -1,0 +1,14 @@
+---
+description: No ejecutar cambios sin autorización explícita; respaldo obligatorio antes de modificar
+alwaysApply: true
+---
+
+# Restricciones operativas permanentes
+
+## 1. No ejecución sin consulta
+- No aplicar ediciones, ni crear/eliminar archivos, ni ejecutar comandos con impacto sin autorización explícita.
+- Flujo obligatorio: análisis → propuesta → "REQUESTING AUTHORIZATION TO EXECUTE" → esperar respuesta del usuario → solo entonces ejecutar.
+
+## 2. Respaldo antes de modificar
+- Antes de modificar cualquier archivo del sistema, crear copia de respaldo (ej. en `respaldo_pre_tickets_qr/nombre_archivo_YYYYMMDD.bak`).
+- Permite rollback seguro ante regresiones o fallos (ej. CPU 100 %, bloqueos).

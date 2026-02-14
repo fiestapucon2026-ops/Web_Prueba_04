@@ -1,0 +1,22 @@
+/** Fallback: escribe en .cursor/debug.log si el ingest no está disponible */
+function dbgLog(p: Record<string, unknown>): void {
+  const payload = { ...p, timestamp: Date.now() };
+  const body = JSON.stringify(payload);
+  fetch('http://127.0.0.1:7242/ingest/b6986c15-cff9-4156-9370-473ee8d4c21f', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  }).catch(() => {});
+  try {
+    const fs = require('fs') as typeof import('fs');
+    const path = require('path') as typeof import('path');
+    const dir = path.join(process.cwd(), '.cursor');
+    const logPath = path.join(dir, 'debug.log');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(logPath, body + '\n');
+  } catch {
+    /* ignore: serverless read-only fs */
+  }
+}
+
+export { dbgLog };
