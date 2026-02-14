@@ -63,7 +63,7 @@ export default function Home() {
             fontFamily: '"Open Sans", Arial, Helvetica, sans-serif',
           }}
         >
-          PROGRAMA
+          🎸 PROGRAMA
         </button>
       </main>
 

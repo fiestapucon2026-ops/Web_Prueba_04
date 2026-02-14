@@ -35,6 +35,7 @@ export type CustomerFormValues = z.infer<typeof CustomerFormSchema>;
 interface CustomerFormProps {
   onSubmit: (values: CustomerFormValues) => void;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 const initialValues: CustomerFormValues = {
@@ -70,7 +71,7 @@ function persist(values: CustomerFormValues) {
   } catch (_) {}
 }
 
-export function CustomerForm({ onSubmit, disabled = false }: CustomerFormProps) {
+export function CustomerForm({ onSubmit, disabled = false, compact = false }: CustomerFormProps) {
   const [values, setValues] = useState<CustomerFormValues>(() => ({
     ...initialValues,
     ...loadPersisted(),
@@ -142,10 +143,21 @@ export function CustomerForm({ onSubmit, disabled = false }: CustomerFormProps) 
     [values, onSubmit]
   );
 
+  const formGapClass = compact ? 'gap-3' : 'gap-5';
+  const labelClass = compact
+    ? 'mb-1 block text-base font-semibold text-slate-200'
+    : 'mb-1 block font-semibold text-slate-200';
+  const inputClass = compact
+    ? 'w-full rounded-lg border border-slate-600 bg-slate-700 px-3 py-2 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50'
+    : 'w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50';
+  const submitClass = compact
+    ? 'mt-1 w-full rounded-lg bg-blue-600 px-4 py-2.5 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50'
+    : 'mt-2 w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50';
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} className={`flex flex-col ${formGapClass}`}>
       <div>
-        <label htmlFor="customer-name" className="mb-1 block font-semibold text-slate-200">
+        <label htmlFor="customer-name" className={labelClass}>
           Nombre completo
         </label>
         <input
@@ -156,17 +168,17 @@ export function CustomerForm({ onSubmit, disabled = false }: CustomerFormProps) 
           onBlur={handleBlur('name')}
           disabled={disabled}
           placeholder="Nombre y apellido"
-          className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
+          className={inputClass}
           autoComplete="name"
         />
         {errors.name && <p className="mt-1 text-sm text-red-400">{errors.name}</p>}
       </div>
 
       <div>
-        <label htmlFor="customer-email" className="mb-1 block font-semibold text-slate-200">
+        <label htmlFor="customer-email" className={labelClass}>
           Email
         </label>
-        <p className="mb-2 text-sm font-medium text-amber-400">
+        <p className={compact ? 'mb-1 text-xs font-medium text-amber-400' : 'mb-2 text-sm font-medium text-amber-400'}>
           IMPORTANTE: A este correo llegarán tus entradas.
         </p>
         <input
@@ -177,14 +189,14 @@ export function CustomerForm({ onSubmit, disabled = false }: CustomerFormProps) 
           onBlur={handleBlur('email')}
           disabled={disabled}
           placeholder="tu@email.com"
-          className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
+          className={inputClass}
           autoComplete="email"
         />
         {errors.email && <p className="mt-1 text-sm text-red-400">{errors.email}</p>}
       </div>
 
       <div>
-        <label htmlFor="customer-email-confirm" className="mb-1 block font-semibold text-slate-200">
+        <label htmlFor="customer-email-confirm" className={labelClass}>
           Confirmar email
         </label>
         <input
@@ -195,14 +207,14 @@ export function CustomerForm({ onSubmit, disabled = false }: CustomerFormProps) 
           onBlur={handleBlur('emailConfirmation')}
           disabled={disabled}
           placeholder="Repite tu email"
-          className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
+          className={inputClass}
           autoComplete="email"
         />
         {errors.emailConfirmation && <p className="mt-1 text-sm text-red-400">{errors.emailConfirmation}</p>}
       </div>
 
       <div>
-        <label htmlFor="customer-phone" className="mb-1 block font-semibold text-slate-200">
+        <label htmlFor="customer-phone" className={labelClass}>
           Teléfono
         </label>
         <input
@@ -214,14 +226,14 @@ export function CustomerForm({ onSubmit, disabled = false }: CustomerFormProps) 
           disabled={disabled}
           placeholder="9 1234 5678"
           maxLength={9}
-          className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
+          className={inputClass}
           autoComplete="tel"
         />
         {errors.phone && <p className="mt-1 text-sm text-red-400">{errors.phone}</p>}
       </div>
 
       <div>
-        <label htmlFor="customer-rut" className="mb-1 block font-semibold text-slate-200">
+        <label htmlFor="customer-rut" className={labelClass}>
           RUT
         </label>
         <input
@@ -232,7 +244,7 @@ export function CustomerForm({ onSubmit, disabled = false }: CustomerFormProps) 
           onBlur={handleBlur('rut')}
           disabled={disabled}
           placeholder="12345678-9"
-          className="w-full rounded-lg border border-slate-600 bg-slate-700 px-4 py-3 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
+          className={inputClass}
           autoComplete="off"
           inputMode="numeric"
         />
@@ -242,7 +254,7 @@ export function CustomerForm({ onSubmit, disabled = false }: CustomerFormProps) 
       <button
         type="submit"
         disabled={disabled}
-        className="mt-2 w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50"
+        className={submitClass}
       >
         Continuar
       </button>

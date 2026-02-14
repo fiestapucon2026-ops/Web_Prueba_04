@@ -156,7 +156,7 @@ export default function ComprarPage() {
         />
       </div>
 
-      <main className="relative z-10 mx-auto max-w-2xl px-4 pt-24 pb-12 md:px-6 md:pt-28">
+      <main className="relative z-10 mx-auto max-w-xl px-4 pt-20 pb-10 md:px-5 md:pt-24">
         <Link
           href="/"
           className="inline-block mb-4 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20"
@@ -165,7 +165,7 @@ export default function ComprarPage() {
         </Link>
 
         {step === 1 && (
-          <div className="rounded-xl p-4 md:p-6 text-white" style={CARD_STYLE}>
+          <div className="rounded-xl p-3 md:p-4 text-white" style={CARD_STYLE}>
             {inventoryLoading && (
               <p className="text-center text-white/70">Cargando entradas...</p>
             )}
@@ -180,7 +180,7 @@ export default function ComprarPage() {
                   onCartChange={setCart}
                   disabled={purchaseLoading}
                 />
-                <div className="mt-6 flex flex-col gap-3">
+                <div className="mt-4 flex flex-col gap-2">
                   <button
                     type="button"
                     disabled={!cart.mainTicket}
@@ -196,21 +196,22 @@ export default function ComprarPage() {
         )}
 
         {step === 2 && (
-          <div className="rounded-xl p-4 md:p-6 text-white" style={CARD_STYLE}>
+          <div className="rounded-xl p-3 md:p-4 text-white" style={CARD_STYLE}>
             <button
               type="button"
               onClick={handleVolverToTickets}
-              className="mb-4 rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 transition-colors"
+              className="mb-3 rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 transition-colors"
             >
               ← Volver
             </button>
-            <h3 className="mb-4 text-lg font-semibold">Datos para tu entrada</h3>
+            <h3 className="mb-3 text-lg font-semibold">Datos para tu entrada</h3>
             {purchaseError && (
               <p className="mb-4 text-sm text-red-400">{purchaseError}</p>
             )}
             <CustomerForm
               onSubmit={handleCustomerSubmit}
               disabled={purchaseLoading}
+              compact
             />
           </div>
         )}
