@@ -26,19 +26,6 @@ export default function UnSoloDiaPage() {
         />
       </div>
 
-      <div className="absolute top-0 right-0 p-6 lg:p-8 z-50 pointer-events-none">
-        <div className="pointer-events-auto">
-          <Image
-            src="/images/Logo Negro 3 sin fondo chico.png"
-            alt="Logo Festival"
-            width={200}
-            height={200}
-            className="w-auto h-auto max-w-[250px] lg:max-w-[300px]"
-            priority
-          />
-        </div>
-      </div>
-
       <main className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 pt-24 pb-12 text-center">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 drop-shadow-lg">
           PUCÓN ROCK LEGENDS 2026

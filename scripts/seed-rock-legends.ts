@@ -27,11 +27,11 @@ const VENUE = 'Club de Rodeo de Pucón';
 const STOCK = 500;
 const OVERBOOKING_PCT = 10;
 
-/** Precios de prueba (1000, 1003, 1007) para pruebas; luego volver a 5000, 3000, 8000. */
+/** Precios originales en producción. */
 const TICKET_TYPES = [
-  { name: 'Tickets', price: 1000 },
-  { name: 'Estacionamiento', price: 1003 },
-  { name: 'Promo', price: 1007 },
+  { name: 'Tickets', price: 5000 },
+  { name: 'Estacionamiento', price: 3000 },
+  { name: 'Promo', price: 8000 },
 ] as const;
 
 async function main() {
