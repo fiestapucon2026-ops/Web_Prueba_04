@@ -8,10 +8,14 @@ const CTA_TEXT = 'PINCHA ACA PARA TUS TICKETS';
 
 export default function Home() {
   const [isProgramOpen, setIsProgramOpen] = useState(false);
+  const [isGabrielOpen, setIsGabrielOpen] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsProgramOpen(false);
+      if (event.key === 'Escape') {
+        setIsProgramOpen(false);
+        setIsGabrielOpen(false);
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -64,6 +68,18 @@ export default function Home() {
           }}
         >
           🎸 PROGRAMA
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsGabrielOpen(true)}
+          className="mt-3 inline-block rounded-xl px-8 py-3 font-bold text-black transition-transform hover:scale-[1.02]"
+          style={{
+            backgroundColor: '#ffd21f',
+            border: '2px solid #1fff93',
+            fontFamily: '"Open Sans", Arial, Helvetica, sans-serif',
+          }}
+        >
+          Gabriel Marián
         </button>
       </main>
 
@@ -230,6 +246,48 @@ export default function Home() {
                   en cada verso de &quot;Mujer Amante&quot;. No es un concierto, es la comunión con la leyenda.
                 </p>
               </section>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isGabrielOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/55 backdrop-blur-[2px] flex items-center justify-center p-4"
+          onClick={() => setIsGabrielOpen(false)}
+          role="presentation"
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl border border-white/25 bg-black/65 backdrop-blur-md shadow-[0_10px_40px_rgba(0,0,0,0.55)] text-white p-4 md:p-6"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Video de Gabriel Marián"
+          >
+            <div className="flex items-center justify-between gap-4 mb-3">
+              <h2 className="text-xl md:text-2xl font-bold text-white">
+                Gabriel Marián te invita a su show
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsGabrielOpen(false)}
+                className="rounded-lg px-3 py-1.5 text-sm font-bold text-black hover:opacity-95"
+                style={{ backgroundColor: '#ffd21f', border: '2px solid #1fff93' }}
+              >
+                Volver
+              </button>
+            </div>
+
+            <div className="rounded-xl overflow-hidden border border-white/20 bg-black">
+              <video
+                src="/videos/gabriel-marian.mp4"
+                controls
+                playsInline
+                preload="metadata"
+                className="w-full h-auto max-h-[70vh]"
+              >
+                Tu navegador no soporta la reproducción de video.
+              </video>
             </div>
           </div>
         </div>
