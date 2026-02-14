@@ -1,9 +1,22 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 const CTA_TEXT = 'PINCHA ACA PARA TUS TICKETS';
 
 export default function Home() {
+  const [isProgramOpen, setIsProgramOpen] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsProgramOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   return (
     <div className="relative min-h-screen text-white">
       <div className="fixed inset-0 z-0">
@@ -40,6 +53,18 @@ export default function Home() {
         >
           {CTA_TEXT}
         </Link>
+        <button
+          type="button"
+          onClick={() => setIsProgramOpen(true)}
+          className="mt-4 inline-block rounded-xl px-8 py-3 font-bold text-black transition-transform hover:scale-[1.02]"
+          style={{
+            backgroundColor: '#ffd21f',
+            border: '2px solid #1fff93',
+            fontFamily: '"Open Sans", Arial, Helvetica, sans-serif',
+          }}
+        >
+          PROGRAMA
+        </button>
       </main>
 
       {/* Sección Ubicación - vital para llegada al evento */}
@@ -133,6 +158,81 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {isProgramOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/55 backdrop-blur-[2px] flex items-center justify-center p-4"
+          onClick={() => setIsProgramOpen(false)}
+          role="presentation"
+        >
+          <div
+            className="w-full max-w-4xl max-h-[88vh] overflow-y-auto rounded-2xl border border-white/25 bg-black/65 backdrop-blur-md shadow-[0_10px_40px_rgba(0,0,0,0.55)] text-white p-6 md:p-8"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Programa del evento"
+          >
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <h2 className="text-2xl md:text-3xl font-bold text-white">
+                PUCÓN ROCK LEGENDS: EL VIAJE DE TU VIDA
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsProgramOpen(false)}
+                className="rounded-lg border border-white/30 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/10"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="space-y-6 text-white">
+              <section className="rounded-xl border border-white/15 bg-white/5 p-4 md:p-5">
+                <h3 className="text-lg md:text-xl font-extrabold text-white mb-2">
+                  13:00 hrs | EL DESPEGUE: CERVEZA, FUEGO Y AMIGOS
+                </h3>
+                <p className="text-white/90 leading-relaxed">
+                  Las puertas se abren para los que saben que el rock empieza con el primer brindis.
+                  Cerveza artesanal helada, sushi de autor, hamburguesas que alimentan el alma y el sol de Pucón.
+                  Elige tu lugar, el viaje está por comenzar.
+                </p>
+              </section>
+
+              <section className="rounded-xl border border-white/15 bg-white/5 p-4 md:p-5">
+                <h3 className="text-lg md:text-xl font-extrabold text-white mb-2">
+                  16:30 hrs | KILLER QUEEN: EL REY NO HA MUERTO
+                </h3>
+                <p className="text-white/90 leading-relaxed">
+                  No es solo un tributo, es volver a Wembley '86. Cierra los ojos y siente cómo
+                  &quot;Bohemian Rhapsody&quot; detiene el tiempo. La mística de Freddie renace para recordarte
+                  que la realeza es eterna. Un show para los que aún sienten escalofríos con un &quot;Ay-Oh!&quot;.
+                </p>
+              </section>
+
+              <section className="rounded-xl border border-white/15 bg-white/5 p-4 md:p-5">
+                <h3 className="text-lg md:text-xl font-extrabold text-white mb-2">
+                  18:30 hrs | FUSIÓN ESTELAR: LA GLORIA DE LOS 80s
+                </h3>
+                <p className="text-white/90 leading-relaxed">
+                  Esa dosis de adrenalina que te hace falta. Bon Jovi en estado puro. Es volver a esa carretera,
+                  a ese primer beso, a esa rebeldía. &quot;Livin&apos; on a Prayer&quot; no es una canción, es el grito
+                  de una generación que se niega a envejecer. ¡Calentamos motores para el estallido final!
+                </p>
+              </section>
+
+              <section className="rounded-xl border border-white/15 bg-white/5 p-4 md:p-5">
+                <h3 className="text-lg md:text-xl font-extrabold text-white mb-2">
+                  20:30 hrs | EL CIERRE: GABRIEL MARIÁN (LA VOZ DE UNA ERA)
+                </h3>
+                <p className="text-white/90 leading-relaxed">
+                  Cuando la noche cae, la voz que marcó el rock en español toma el control. Gabriel Marián nos lleva
+                  de vuelta al corazón de Rata Blanca VII. Prepárate para detonar con &quot;Ella&quot; y dejar la garganta
+                  en cada verso de &quot;Mujer Amante&quot;. No es un concierto, es la comunión con la leyenda.
+                </p>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
