@@ -20,6 +20,12 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, max-age=0' },
         ],
       },
+      {
+        source: '/workers/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400' },
+        ],
+      },
     ];
   },
   images: {

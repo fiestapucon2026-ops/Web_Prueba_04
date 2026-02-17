@@ -5,39 +5,17 @@ import ScannerV2 from '@/components/ScannerV2';
 import ManualEntryV2 from '@/components/ManualEntryV2';
 
 type Notif = { type: 'success' | 'error'; message: string } | null;
-type AdminRole = 'admin' | 'access_control' | 'caja';
-type ViewMode = 'scanner' | 'gifts';
-type GiftKind = 'entrada' | 'estacionamiento' | 'promo';
-type GiftOption = {
-  kind: GiftKind;
-  ticket_type_name: string;
-  available_stock: number;
-};
-
-function todayChile(): string {
-  return new Date()
-    .toLocaleDateString('en-CA', { timeZone: 'America/Santiago' })
-    .slice(0, 10);
-}
 
 export default function ScannerPageV2() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [role, setRole] = useState<AdminRole | null>(null);
   const [inputKey, setInputKey] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('scanner');
   type ResultKind = 'access_ok' | 'already_used' | 'invalid_qr' | 'valid_other_day' | 'promo_not_entry';
   const [lastResult, setLastResult] = useState<{ kind: ResultKind; msg: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [notification, setNotification] = useState<Notif>(null);
   const [lastRawDecoded, setLastRawDecoded] = useState<string | null>(null);
-  const [giftDate, setGiftDate] = useState(todayChile());
-  const [giftKind, setGiftKind] = useState<GiftKind>('entrada');
-  const [giftQuantity, setGiftQuantity] = useState(1);
-  const [giftOptions, setGiftOptions] = useState<GiftOption[]>([]);
-  const [giftLoading, setGiftLoading] = useState(false);
-  const [giftMessage, setGiftMessage] = useState<Notif>(null);
 
   const checkAuth = useCallback(async () => {
     setLoading(true);
@@ -45,20 +23,15 @@ export default function ScannerPageV2() {
       const res = await fetch('/api/admin/check', { credentials: 'include' });
       if (res.status === 401) {
         setAuthenticated(false);
-        setRole(null);
         return;
       }
       if (!res.ok) {
         setAuthenticated(false);
-        setRole(null);
         return;
       }
-      const data = (await res.json()) as { ok?: boolean; role?: AdminRole };
-      setAuthenticated(Boolean(data.ok));
-      setRole(data.role ?? null);
+      setAuthenticated(res.ok);
     } catch {
       setAuthenticated(false);
-      setRole(null);
     } finally {
       setLoading(false);
     }
@@ -67,35 +40,6 @@ export default function ScannerPageV2() {
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
-
-  const loadGiftOptions = useCallback(async () => {
-    if (role !== 'admin') return;
-    setGiftLoading(true);
-    try {
-      const res = await fetch(`/api/admin/tickets/gifts?date=${encodeURIComponent(giftDate)}`, {
-        credentials: 'include',
-      });
-      const data = (await res.json()) as { options?: GiftOption[]; error?: string };
-      if (!res.ok) {
-        setGiftOptions([]);
-        setGiftMessage({ type: 'error', message: data.error || 'No se pudieron cargar opciones de regalo' });
-        return;
-      }
-      setGiftOptions(Array.isArray(data.options) ? data.options : []);
-      setGiftMessage(null);
-    } catch {
-      setGiftOptions([]);
-      setGiftMessage({ type: 'error', message: 'Error de red cargando opciones de regalo' });
-    } finally {
-      setGiftLoading(false);
-    }
-  }, [giftDate, role]);
-
-  useEffect(() => {
-    if (viewMode === 'gifts' && role === 'admin') {
-      loadGiftOptions();
-    }
-  }, [loadGiftOptions, role, viewMode]);
 
   const UUID_STRICT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const UUID_MATCH = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
@@ -114,7 +58,6 @@ export default function ScannerPageV2() {
         if (extracted) uuid = extracted;
       }
       if (!UUID_STRICT.test(uuid)) {
-        console.warn('[ScannerV2] QR decodificado no es UUID. Raw:', JSON.stringify(raw));
         setLastRawDecoded(raw.length > 80 ? raw.slice(0, 80) + '…' : raw);
         setNotification({ type: 'error', message: 'Formato QR inválido (No es UUID)' });
         setIsProcessing(false);
@@ -180,7 +123,7 @@ export default function ScannerPageV2() {
     e.preventDefault();
     setLoginError('');
     if (!inputKey.trim()) {
-      setLoginError('Ingresa la clave de administrador');
+      setLoginError('Ingresa la clave de acceso');
       return;
     }
     setLoading(true);
@@ -192,7 +135,23 @@ export default function ScannerPageV2() {
         body: JSON.stringify({ key: inputKey.trim() }),
       });
       if (res.status === 401) {
-        setLoginError('Clave incorrecta');
+        const secretLen = res.headers.get('X-Admin-Secret-Len');
+        const providedLen = res.headers.get('X-Admin-Provided-Len');
+        let msg: string;
+        try {
+          const data = (await res.json()) as { error?: string };
+          msg = data?.error ?? '';
+        } catch {
+          msg = '';
+        }
+        if (secretLen !== null && providedLen !== null) {
+          const s = Number(secretLen);
+          const p = Number(providedLen);
+          if (s === 0) msg = 'Servidor sin ADMIN_SECRET. Configurar en Vercel (Production) y redeploy.';
+          else if (s !== p) msg = `Longitud incorrecta: ingresaste ${p} caracteres; servidor espera ${s}.`;
+          else if (!msg) msg = 'Clave incorrecta (longitud correcta; contenido distinto).';
+        }
+        setLoginError(msg || 'Clave incorrecta');
         return;
       }
       if (!res.ok) {
@@ -211,42 +170,7 @@ export default function ScannerPageV2() {
   const handleLogout = async () => {
     await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' });
     setAuthenticated(false);
-    setRole(null);
     setLastResult(null);
-    setViewMode('scanner');
-  };
-
-  const handleCreateGifts = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (role !== 'admin') return;
-    setGiftLoading(true);
-    setGiftMessage(null);
-    try {
-      const res = await fetch('/api/admin/tickets/gifts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          date: giftDate,
-          kind: giftKind,
-          quantity: giftQuantity,
-        }),
-      });
-      const data = (await res.json()) as { ok?: boolean; message?: string; error?: string; created?: number };
-      if (!res.ok) {
-        setGiftMessage({ type: 'error', message: data.error || 'No se pudieron crear tickets regalo' });
-        return;
-      }
-      setGiftMessage({
-        type: 'success',
-        message: `${data.message || 'Tickets regalo creados'}: ${data.created ?? giftQuantity}`,
-      });
-      await loadGiftOptions();
-    } catch {
-      setGiftMessage({ type: 'error', message: 'Error de red al crear tickets regalo' });
-    } finally {
-      setGiftLoading(false);
-    }
   };
 
   if (authenticated === null) {
@@ -261,6 +185,7 @@ export default function ScannerPageV2() {
     return (
       <main className="min-h-screen bg-gray-50 p-4 flex flex-col items-center justify-center">
         <h1 className="text-xl font-bold text-gray-800 mb-4">Control de Acceso V2</h1>
+        <p className="text-sm text-gray-500 mb-4">Uso en celulares. Clave de control de acceso o CAJA.</p>
         <form onSubmit={handleLogin} className="w-full max-w-sm space-y-3">
           <label className="block text-sm font-medium text-gray-700">Clave de acceso</label>
           <input
@@ -296,30 +221,7 @@ export default function ScannerPageV2() {
         </button>
       </div>
 
-      <div className="w-full max-w-md mb-4 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setViewMode('scanner')}
-          className={`flex-1 rounded border px-3 py-2 text-sm font-semibold ${
-            viewMode === 'scanner' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300'
-          }`}
-        >
-          Scanner
-        </button>
-        {role === 'admin' && (
-          <button
-            type="button"
-            onClick={() => setViewMode('gifts')}
-            className={`flex-1 rounded border px-3 py-2 text-sm font-semibold ${
-              viewMode === 'gifts' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300'
-            }`}
-          >
-            Tickets de regalo
-          </button>
-        )}
-      </div>
-
-      {viewMode === 'scanner' && notification && (
+      {notification && (
         <div
           className={`w-full max-w-md mb-4 p-3 rounded text-sm ${
             notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -332,90 +234,7 @@ export default function ScannerPageV2() {
         </div>
       )}
 
-      {viewMode === 'gifts' && role === 'admin' ? (
-        <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-4 space-y-4">
-          <h2 className="text-lg font-bold text-gray-800">Generar tickets de regalo</h2>
-          <p className="text-xs text-gray-500">
-            Acceso exclusivo ADMIN_SECRET. Esta operación crea tickets para: Entrada, Estacionamiento o PROMO.
-          </p>
-          <form onSubmit={handleCreateGifts} className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
-              <input
-                type="date"
-                value={giftDate}
-                onChange={(e) => setGiftDate(e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-              <select
-                value={giftKind}
-                onChange={(e) => setGiftKind(e.target.value as GiftKind)}
-                className="w-full rounded border border-gray-300 px-3 py-2"
-              >
-                <option value="entrada">Entrada</option>
-                <option value="estacionamiento">Estacionamiento</option>
-                <option value="promo">PROMO</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={giftQuantity}
-                onChange={(e) => setGiftQuantity(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
-                className="w-full rounded border border-gray-300 px-3 py-2"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={giftLoading}
-              className="w-full rounded bg-gray-900 text-white py-2 font-semibold disabled:opacity-50"
-            >
-              {giftLoading ? 'Procesando...' : 'Generar tickets regalo'}
-            </button>
-          </form>
-
-          <button
-            type="button"
-            onClick={loadGiftOptions}
-            disabled={giftLoading}
-            className="w-full rounded border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            Actualizar disponibilidad
-          </button>
-
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-gray-700">Disponibilidad por tipo</p>
-            {giftOptions.length === 0 ? (
-              <p className="text-sm text-gray-500">Sin datos para la fecha seleccionada.</p>
-            ) : (
-              giftOptions.map((o, idx) => (
-                <div key={`${o.kind}-${o.ticket_type_name}-${idx}`} className="rounded border border-gray-200 p-2 text-sm">
-                  <p className="font-medium text-gray-800">{o.ticket_type_name}</p>
-                  <p className="text-gray-600">
-                    Tipo: {o.kind.toUpperCase()} | Disponible: {o.available_stock}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-
-          {giftMessage && (
-            <div
-              className={`rounded p-3 text-sm ${
-                giftMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              }`}
-            >
-              {giftMessage.message}
-            </div>
-          )}
-        </div>
-      ) : lastResult ? (
+      {lastResult ? (
         <div
           className={`w-full max-w-md p-8 rounded-2xl text-center shadow-2xl mb-6 ${
             lastResult.kind === 'valid_other_day'
@@ -423,12 +242,12 @@ export default function ScannerPageV2() {
               : lastResult.kind === 'promo_not_entry'
                 ? 'bg-orange-600 text-white'
                 : 'text-white ' + (
-              lastResult.kind === 'access_ok'
-                ? 'bg-green-600'
-                : lastResult.kind === 'already_used'
-                  ? 'bg-red-600'
-                  : 'bg-purple-600'
-            )
+            lastResult.kind === 'access_ok'
+              ? 'bg-green-600'
+              : lastResult.kind === 'already_used'
+                ? 'bg-red-600'
+                : 'bg-purple-600'
+          )
           }`}
         >
           <div className="text-6xl mb-4">
@@ -458,7 +277,7 @@ export default function ScannerPageV2() {
           <ScannerV2 onScan={handleValidation} onError={(msg) => setNotification({ type: 'error', message: msg })} />
           <ManualEntryV2 onSubmit={handleValidation} />
           <div className="text-center mt-8 text-xs text-gray-400">
-            Versión de Motor: qr-scanner 1.4.2 (Worker Mode) — URL de prueba: /admin/scanner-v2
+            Scanner para celulares — /admin/scanner-v2
           </div>
         </div>
       )}
