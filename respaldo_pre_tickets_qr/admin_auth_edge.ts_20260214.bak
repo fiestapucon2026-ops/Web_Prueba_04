@@ -1,10 +1,10 @@
-import { verifySessionCookie } from './admin-session-edge';
+import { verifySessionCookie, type AdminRole } from './admin-session-edge';
 
-/** Rutas /api/admin que aceptan roles restringidos (control de acceso y caja). */
-const RESTRICTED_ROLE_PATHS = ['/api/admin/tickets/validate', '/api/admin/check'];
+/** Rutas /api/admin que aceptan rol access_control (solo control de acceso). */
+const ACCESS_CONTROL_PATHS = ['/api/admin/tickets/validate', '/api/admin/check'];
 
-function pathAllowsRestrictedRole(path: string): boolean {
-  return RESTRICTED_ROLE_PATHS.some((p) => path === p || path.startsWith(p + '/'));
+function pathAllowsAccessControl(path: string): boolean {
+  return ACCESS_CONTROL_PATHS.some((p) => path === p || path.startsWith(p + '/'));
 }
 
 async function timingSafeEqualHash(a: string, b: string): Promise<boolean> {
@@ -21,28 +21,24 @@ async function timingSafeEqualHash(a: string, b: string): Promise<boolean> {
 
 /**
  * Verificación timing-safe de x-admin-key o cookie (Edge Runtime).
- * Devuelve rol (admin | access_control | caja) o false. Si el rol es
- * restringido (access_control o caja), solo se acepta en rutas permitidas.
+ * Devuelve rol (admin | access_control) o false. Si el rol es access_control,
+ * solo se acepta en rutas de control de acceso (validate, check).
  */
 export async function verifyAdminKeyEdge(request: Request, path: string): Promise<boolean> {
   const secret = process.env.ADMIN_SECRET;
   const accessKey = process.env.ACCESS_CONTROL_KEY;
-  const cajaKey = process.env.CAJA_KEY;
   if (!secret) return false;
 
   const headerKey = request.headers.get('x-admin-key');
   if (headerKey !== null && headerKey !== undefined) {
     if (await timingSafeEqualHash(headerKey, secret)) return true;
     if (accessKey && (await timingSafeEqualHash(headerKey, accessKey))) {
-      return pathAllowsRestrictedRole(path);
-    }
-    if (cajaKey && (await timingSafeEqualHash(headerKey, cajaKey))) {
-      return pathAllowsRestrictedRole(path);
+      return pathAllowsAccessControl(path);
     }
   }
 
   const role = await verifySessionCookie(request);
   if (role === 'admin') return true;
-  if (role === 'access_control' || role === 'caja') return pathAllowsRestrictedRole(path);
+  if (role === 'access_control') return pathAllowsAccessControl(path);
   return false;
 }

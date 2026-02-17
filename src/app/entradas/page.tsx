@@ -186,20 +186,6 @@ export default function EntradasPage() {
         />
       </div>
 
-      {/* Logo: misma posición y proporción que página de inicio */}
-      <div className="absolute top-0 right-0 p-6 lg:p-8 z-50 pointer-events-none">
-        <div className="pointer-events-auto">
-          <Image
-            src="/images/Logo Negro 3 sin fondo chico.png"
-            alt="Logo Festival"
-            width={200}
-            height={200}
-            className="w-auto h-auto max-w-[250px] lg:max-w-[300px]"
-            priority
-          />
-        </div>
-      </div>
-
       <main className="relative z-10 mx-auto max-w-2xl px-4 pt-[28vh] pb-12 md:px-6 md:pt-[32vh]">
         {/* Paso 1: Elige la fecha (solo cuando step === 1) */}
         {step === 1 && (

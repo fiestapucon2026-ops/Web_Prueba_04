@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useMemo, useState, useEffect } from 'react';
 
@@ -76,19 +75,6 @@ export default function RockLegendsHome() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      {/* Header: logo */}
-      <header className="pt-8 pb-4 flex justify-center">
-        <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full overflow-hidden border-2 border-white/20">
-          <Image
-            src="/images/Logo Negro 3 sin fondo chico.png"
-            alt="Logo"
-            width={160}
-            height={160}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      </header>
-
       {/* Títulos */}
       <div className="text-center px-4 pb-6">
         <p className="text-amber-400/90 text-sm uppercase tracking-widest">Pucón</p>

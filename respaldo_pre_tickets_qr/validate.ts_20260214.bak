@@ -4,8 +4,6 @@ export type ValidateTicketResult =
   | { valid: true; message: string; ticket_id: string }
   | { valid: false; message: string };
 
-export type TicketValidatorRole = 'admin' | 'access_control' | 'caja';
-
 /** Fecha "hoy" en zona Chile (America/Santiago) como YYYY-MM-DD. */
 function todayChile(): string {
   return new Date()
@@ -17,10 +15,7 @@ function todayChile(): string {
  * Valida un ticket por qr_uuid: busca, comprueba estado y si está sold_unused
  * y es para el día actual (Chile), actualiza a used. Solo uso server-side.
  */
-export async function validateTicketByQrUuid(
-  qr_uuid: string,
-  validatorRole: TicketValidatorRole = 'admin'
-): Promise<ValidateTicketResult> {
+export async function validateTicketByQrUuid(qr_uuid: string): Promise<ValidateTicketResult> {
   const supabase = requireSupabaseAdmin();
 
   const { data: ticket, error } = await supabase
@@ -44,23 +39,9 @@ export async function validateTicketByQrUuid(
 
   const { data: inv } = await supabase
     .from('inventory')
-    .select('event_id, ticket_type_id')
+    .select('event_id')
     .eq('id', row.inventory_id)
     .single();
-
-  // Control de Acceso no debe validar tickets PROMO.
-  if (inv?.ticket_type_id) {
-    const { data: ticketType } = await supabase
-      .from('ticket_types')
-      .select('name')
-      .eq('id', (inv as { ticket_type_id: string }).ticket_type_id)
-      .single();
-    const typeName = String((ticketType as { name?: string } | null)?.name || '');
-    const isPromoTicket = typeName.toLowerCase().includes('promo');
-    if (validatorRole === 'access_control' && isPromoTicket) {
-      return { valid: false, message: 'PROMO : No valido como entrada' };
-    }
-  }
 
   if (inv?.event_id) {
     const { data: ev } = await supabase
