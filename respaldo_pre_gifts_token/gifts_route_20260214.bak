@@ -1,6 +1,5 @@
 import { verifyAdminKey } from '@/lib/admin-auth';
 import { requireSupabaseAdmin } from '@/lib/supabase';
-import { createAccessToken } from '@/lib/security/access-token';
 import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -264,16 +263,13 @@ export async function POST(request: Request) {
     console.error('[gifts] Error al encolar PDF:', jobErr);
   }
 
-  const accessToken = createAccessToken(externalReference);
-
   return NextResponse.json({
     ok: true,
-    message: 'Tickets regalo creados. Puedes verlos o descargar PDF abajo.',
+    message: 'Tickets regalo creados. PDF y email se enviarán a regalos@festivalpucon.cl en unos minutos.',
     created: quantity,
     kind,
     date,
     ticket_type_name: target.ticket_type_name,
     external_reference: externalReference,
-    access_token: accessToken,
   });
 }

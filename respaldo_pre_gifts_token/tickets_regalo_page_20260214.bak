@@ -28,7 +28,6 @@ export default function TicketsRegaloPage() {
   const [giftOptions, setGiftOptions] = useState<GiftOption[]>([]);
   const [giftLoading, setGiftLoading] = useState(false);
   const [giftMessage, setGiftMessage] = useState<Notif>(null);
-  const [lastAccessToken, setLastAccessToken] = useState<string | null>(null);
   const giftMessageRef = useRef<HTMLDivElement>(null);
 
   const checkAuth = useCallback(async () => {
@@ -142,7 +141,6 @@ export default function TicketsRegaloPage() {
     if (!isAdmin) return;
     setGiftLoading(true);
     setGiftMessage(null);
-    setLastAccessToken(null);
     try {
       const res = await fetch('/api/admin/tickets/gifts', {
         method: 'POST',
@@ -154,7 +152,7 @@ export default function TicketsRegaloPage() {
           quantity: giftQuantity,
         }),
       });
-      let data: { ok?: boolean; message?: string; error?: string; created?: number; access_token?: string };
+      let data: { ok?: boolean; message?: string; error?: string; created?: number };
       try {
         data = (await res.json()) as typeof data;
       } catch {
@@ -171,7 +169,6 @@ export default function TicketsRegaloPage() {
         giftMessageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
       }
-      setLastAccessToken(data.access_token ?? null);
       setGiftMessage({
         type: 'success',
         message: `${data.message || 'Tickets regalo creados'}: ${data.created ?? giftQuantity}`,
@@ -339,31 +336,6 @@ export default function TicketsRegaloPage() {
             role="alert"
           >
             {giftMessage.message}
-          </div>
-        )}
-
-        {lastAccessToken && (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2">
-            <p className="text-sm font-medium text-gray-800">Ver o descargar tickets:</p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <a
-                href={`/mis-entradas?token=${encodeURIComponent(lastAccessToken)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center rounded bg-gray-900 text-white px-4 py-2 text-sm font-medium hover:bg-gray-800"
-              >
-                Ver tickets en pantalla
-              </a>
-              <a
-                href={`/api/orders/by-reference/pdf?token=${encodeURIComponent(lastAccessToken)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                download="tickets-regalo.pdf"
-                className="inline-flex items-center justify-center rounded border border-gray-700 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-              >
-                Descargar PDF
-              </a>
-            </div>
           </div>
         )}
       </div>
