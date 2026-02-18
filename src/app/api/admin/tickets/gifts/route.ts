@@ -250,12 +250,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No se pudieron crear tickets regalo' }, { status: 500 });
   }
 
+  const { error: jobErr } = await supabase.from('job_queue').insert({
+    type: 'generate_ticket_pdf',
+    payload: {
+      external_reference: externalReference,
+      order_ids: [orderId],
+      email: giftEmail,
+    },
+    status: 'pending',
+  });
+  if (jobErr) {
+    console.error('[gifts] Error al encolar PDF:', jobErr);
+  }
+
   return NextResponse.json({
     ok: true,
-    message: 'Tickets regalo creados',
+    message: 'Tickets regalo creados. PDF y email se enviarán a regalos@festivalpucon.cl en unos minutos.',
     created: quantity,
     kind,
     date,
     ticket_type_name: target.ticket_type_name,
+    external_reference: externalReference,
   });
 }
