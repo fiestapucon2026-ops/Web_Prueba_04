@@ -186,6 +186,7 @@ export default function TicketsRegaloPage() {
         created?: number;
         access_token?: string;
         pdf_base64?: string;
+        pdf_error?: string;
       };
       try {
         data = (await res.json()) as typeof data;
@@ -213,11 +214,20 @@ export default function TicketsRegaloPage() {
           const a = document.createElement('a');
           a.href = url;
           a.download = 'tickets-regalo.pdf';
+          a.style.display = 'none';
+          document.body.appendChild(a);
           a.click();
+          document.body.removeChild(a);
           URL.revokeObjectURL(url);
-        } catch {
-          // Si falla la descarga, se siguen mostrando los enlaces por token
+        } catch (e) {
+          console.error('Descarga PDF:', e);
         }
+      }
+      if (data.pdf_error) {
+        setGiftMessage({
+          type: 'success',
+          message: `${data.message ?? 'Tickets creados.'} Si no se descargó el PDF, usa el enlace "Descargar PDF" abajo. (Error técnico: ${data.pdf_error})`,
+        });
       }
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/b6986c15-cff9-4156-9370-473ee8d4c21f', {

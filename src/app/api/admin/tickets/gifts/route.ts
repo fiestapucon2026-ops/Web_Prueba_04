@@ -270,33 +270,20 @@ export async function POST(request: Request) {
 
   // Generar PDF de inmediato para que se pueda descargar sin depender del token/enlace
   let pdf_base64: string | null = null;
+  let pdf_error: string | undefined;
   try {
     const { data: orderRow, error: orderErr } = await supabase
       .from('orders')
       .select(
-        `
-        id,
-        external_reference,
-        inventory_id,
-        user_email,
-        amount,
-        status,
-        created_at,
-        inventory:inventory_id (
-          id,
-          event_id,
-          ticket_type_id,
-          total_capacity,
-          event:event_id ( id, name, date, venue ),
-          ticket_type:ticket_type_id ( id, name, price )
-        )
-      `
+        'id, external_reference, inventory_id, user_email, amount, status, created_at'
       )
       .eq('id', orderId)
       .single();
 
-    if (!orderErr && orderRow?.inventory) {
-      const ord = orderRow as unknown as {
+    if (orderErr || !orderRow) {
+      pdf_error = orderErr?.message ?? 'Orden no encontrada';
+    } else {
+      const ord = orderRow as {
         id: string;
         external_reference: string;
         inventory_id: string;
@@ -304,71 +291,102 @@ export async function POST(request: Request) {
         amount: number;
         status: string;
         created_at: string;
-        inventory: {
+      };
+
+      const { data: invRow, error: invErr } = await supabase
+        .from('inventory')
+        .select(
+          `
+          id,
+          event_id,
+          ticket_type_id,
+          total_capacity,
+          event:event_id ( id, name, date, venue ),
+          ticket_type:ticket_type_id ( id, name, price )
+        `
+        )
+        .eq('id', ord.inventory_id)
+        .single();
+
+      const rawEvent = invRow && (invRow as Record<string, unknown>).event;
+      const rawTicketType = invRow && (invRow as Record<string, unknown>).ticket_type;
+      const eventObj = Array.isArray(rawEvent) ? rawEvent[0] : rawEvent;
+      const ticketTypeObj = Array.isArray(rawTicketType) ? rawTicketType[0] : rawTicketType;
+
+      if (invErr || !invRow || !eventObj || !ticketTypeObj) {
+        pdf_error = invErr?.message ?? 'Inventario/evento no encontrado';
+      } else {
+        const inv = invRow as {
           id: string;
           event_id: string;
           ticket_type_id: string;
           total_capacity: number;
-          event: { id: string; name: string; date: string; venue: string };
-          ticket_type: { id: string; name: string; price: number };
         };
-      };
+        const event = eventObj as { id: string; name: string; date: string; venue: string };
+        const ticket_type = ticketTypeObj as { id: string; name: string; price: number };
 
-      const orderWithDetails: OrderWithDetails = {
-        id: ord.id,
-        external_reference: ord.external_reference,
-        inventory_id: ord.inventory_id,
-        user_email: ord.user_email,
-        amount: ord.amount,
-        status: ord.status as 'pending' | 'paid' | 'rejected',
-        mp_payment_id: null,
-        created_at: new Date(ord.created_at),
-        inventory: {
-          id: ord.inventory.id,
-          event_id: ord.inventory.event_id,
-          ticket_type_id: ord.inventory.ticket_type_id,
-          total_capacity: ord.inventory.total_capacity,
-          event: {
-            id: ord.inventory.event.id,
-            name: ord.inventory.event.name,
-            date: new Date(ord.inventory.event.date),
-            venue: ord.inventory.event.venue,
+        const orderWithDetails: OrderWithDetails = {
+          id: ord.id,
+          external_reference: ord.external_reference,
+          inventory_id: ord.inventory_id,
+          user_email: ord.user_email,
+          amount: ord.amount,
+          status: ord.status as 'pending' | 'paid' | 'rejected',
+          mp_payment_id: null,
+          created_at: new Date(ord.created_at),
+          inventory: {
+            id: inv.id,
+            event_id: inv.event_id,
+            ticket_type_id: inv.ticket_type_id,
+            total_capacity: inv.total_capacity,
+            event: {
+              id: event.id,
+              name: event.name,
+              date: new Date(event.date),
+              venue: event.venue,
+            },
+            ticket_type: {
+              id: ticket_type.id,
+              name: ticket_type.name,
+              price: ticket_type.price,
+            },
           },
-          ticket_type: {
-            id: ord.inventory.ticket_type.id,
-            name: ord.inventory.ticket_type.name,
-            price: ord.inventory.ticket_type.price,
-          },
-        },
-      };
-
-      const { data: ticketList } = await supabase
-        .from('tickets')
-        .select('id, qr_uuid')
-        .eq('order_id', orderId)
-        .order('created_at', { ascending: true });
-
-      const items: TicketItemForPDF[] = (ticketList ?? []).map((t) => {
-        const ticket = t as { id: string; qr_uuid?: string | null };
-        return {
-          order: orderWithDetails,
-          ticketId: ticket.id,
-          qr_uuid: ticket.qr_uuid ?? undefined,
         };
-      });
 
-      if (items.length > 0) {
-        const pdfBuffer = await generateTicketsPDF(items);
-        pdf_base64 = Buffer.from(pdfBuffer).toString('base64');
+        const { data: ticketList } = await supabase
+          .from('tickets')
+          .select('id, qr_uuid')
+          .eq('order_id', orderId)
+          .order('created_at', { ascending: true });
+
+        const items: TicketItemForPDF[] = (ticketList ?? []).map((t) => {
+          const ticket = t as { id: string; qr_uuid?: string | null };
+          return {
+            order: orderWithDetails,
+            ticketId: ticket.id,
+            qr_uuid: ticket.qr_uuid ?? undefined,
+          };
+        });
+
+        if (items.length > 0) {
+          const pdfBuffer = await generateTicketsPDF(items);
+          pdf_base64 = Buffer.from(pdfBuffer).toString('base64');
+        } else {
+          pdf_error = 'Sin tickets para PDF';
+        }
       }
     }
   } catch (pdfError) {
+    const msg = pdfError instanceof Error ? pdfError.message : String(pdfError);
     console.error('[gifts] Error generando PDF inmediato:', pdfError);
+    pdf_error = msg;
   }
 
   return NextResponse.json({
     ok: true,
-    message: 'Tickets regalo creados. Puedes verlos o descargar PDF abajo.',
+    message: pdf_base64
+      ? 'Tickets regalo creados. El PDF se descargará automáticamente.'
+      : 'Tickets regalo creados. Usa "Descargar PDF" o "Ver tickets en pantalla" abajo.',
     created: quantity,
     kind,
     date,
@@ -376,5 +394,6 @@ export async function POST(request: Request) {
     external_reference: externalReference,
     access_token: accessToken,
     pdf_base64: pdf_base64 ?? undefined,
+    pdf_error: pdf_error ?? undefined,
   });
 }
