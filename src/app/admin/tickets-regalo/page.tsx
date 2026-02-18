@@ -31,6 +31,8 @@ export default function TicketsRegaloPage() {
   const [lastAccessToken, setLastAccessToken] = useState<string | null>(null);
   const giftMessageRef = useRef<HTMLDivElement>(null);
 
+  const TICKETS_REGALO_TOKEN_KEY = 'tickets_regalo_last_token';
+
   // #region agent log
   useEffect(() => {
     if (lastAccessToken) {
@@ -76,6 +78,12 @@ export default function TicketsRegaloPage() {
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = sessionStorage.getItem(TICKETS_REGALO_TOKEN_KEY);
+    if (saved) setLastAccessToken(saved);
+  }, []);
 
   const loadGiftOptions = useCallback(async () => {
     if (!isAdmin) return;
@@ -200,7 +208,9 @@ export default function TicketsRegaloPage() {
         }),
       }).catch(() => {});
       // #endregion
-      setLastAccessToken(data.access_token ?? null);
+      const token = data.access_token ?? null;
+      setLastAccessToken(token);
+      if (token && typeof window !== 'undefined') sessionStorage.setItem(TICKETS_REGALO_TOKEN_KEY, token);
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/b6986c15-cff9-4156-9370-473ee8d4c21f', {
         method: 'POST',
@@ -385,7 +395,7 @@ export default function TicketsRegaloPage() {
 
         {lastAccessToken && (
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2">
-            <p className="text-sm font-medium text-gray-800">Ver o descargar tickets:</p>
+            <p className="text-sm font-medium text-gray-800">Ver o descargar tickets (válido 24 h):</p>
             <div className="flex flex-col sm:flex-row gap-2">
               <a
                 href={`/mis-entradas?token=${encodeURIComponent(lastAccessToken)}`}
@@ -405,6 +415,7 @@ export default function TicketsRegaloPage() {
                 Descargar PDF
               </a>
             </div>
+            <p className="text-xs text-gray-500">Si recargaste la página, los enlaces se restauran desde esta sesión.</p>
           </div>
         )}
       </div>
