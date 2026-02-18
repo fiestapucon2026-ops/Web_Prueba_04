@@ -34,6 +34,25 @@ export function normalizeKey(value: string | undefined | null): string {
   return s;
 }
 
+/** Devuelve lista de claves normalizadas desde env: KEYS (comma-separated) o KEY (única). */
+function getAccessControlKeys(): string[] {
+  const multi = process.env.ACCESS_CONTROL_KEYS;
+  if (multi && typeof multi === 'string') {
+    return multi.split(',').map((k) => normalizeKey(k)).filter(Boolean);
+  }
+  const single = normalizeKey(process.env.ACCESS_CONTROL_KEY);
+  return single ? [single] : [];
+}
+
+function getCajaKeys(): string[] {
+  const multi = process.env.CAJA_KEYS;
+  if (multi && typeof multi === 'string') {
+    return multi.split(',').map((k) => normalizeKey(k)).filter(Boolean);
+  }
+  const single = normalizeKey(process.env.CAJA_KEY);
+  return single ? [single] : [];
+}
+
 /** Para diagnóstico 401: longitudes normalizadas (no expone el secreto). */
 export function getKeyLengthsForDiagnostic(providedRaw: string): { providedLen: number; adminSecretLen: number } {
   return {
@@ -48,11 +67,13 @@ export function verifyAdminKeyFromBody(key: string): AdminRole | false {
   const provided = normalizeKey(key);
   if (!provided) return false;
   const secret = normalizeKey(process.env.ADMIN_SECRET);
-  const accessKey = normalizeKey(process.env.ACCESS_CONTROL_KEY);
-  const cajaKey = normalizeKey(process.env.CAJA_KEY);
   if (secret && timingSafeCompare(provided, secret)) return 'admin';
-  if (accessKey && timingSafeCompare(provided, accessKey)) return 'access_control';
-  if (cajaKey && timingSafeCompare(provided, cajaKey)) return 'caja';
+  for (const k of getAccessControlKeys()) {
+    if (timingSafeCompare(provided, k)) return 'access_control';
+  }
+  for (const k of getCajaKeys()) {
+    if (timingSafeCompare(provided, k)) return 'caja';
+  }
   return false;
 }
 
@@ -61,16 +82,18 @@ export function verifyAdminKeyFromBody(key: string): AdminRole | false {
  */
 export function verifyAdminKey(request: Request): AdminRole | false {
   const secret = normalizeKey(process.env.ADMIN_SECRET);
-  const accessKey = normalizeKey(process.env.ACCESS_CONTROL_KEY);
-  const cajaKey = normalizeKey(process.env.CAJA_KEY);
   if (!secret) return false;
 
   const headerKey = request.headers.get('x-admin-key');
   if (headerKey !== null && headerKey !== undefined) {
     const provided = normalizeKey(headerKey);
     if (timingSafeCompare(provided, secret)) return 'admin';
-    if (accessKey && timingSafeCompare(provided, accessKey)) return 'access_control';
-    if (cajaKey && timingSafeCompare(provided, cajaKey)) return 'caja';
+    for (const k of getAccessControlKeys()) {
+      if (timingSafeCompare(provided, k)) return 'access_control';
+    }
+    for (const k of getCajaKeys()) {
+      if (timingSafeCompare(provided, k)) return 'caja';
+    }
   }
 
   const cookieToken = getSessionCookie(request);

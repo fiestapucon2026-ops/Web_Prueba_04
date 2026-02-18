@@ -7,6 +7,32 @@ function pathAllowsRestrictedRole(path: string): boolean {
   return RESTRICTED_ROLE_PATHS.some((p) => path === p || path.startsWith(p + '/'));
 }
 
+function normalizeKeyEdge(value: string | undefined | null): string {
+  if (value == null) return '';
+  let s = String(value).trim();
+  s = s.replace(/^["']|["']$/g, '');
+  return s.trim();
+}
+
+/** Lista de claves: KEYS (comma-separated) o KEY (única). */
+function getAccessControlKeysEdge(): string[] {
+  const multi = process.env.ACCESS_CONTROL_KEYS;
+  if (multi && typeof multi === 'string') {
+    return multi.split(',').map((k) => normalizeKeyEdge(k)).filter(Boolean);
+  }
+  const single = normalizeKeyEdge(process.env.ACCESS_CONTROL_KEY);
+  return single ? [single] : [];
+}
+
+function getCajaKeysEdge(): string[] {
+  const multi = process.env.CAJA_KEYS;
+  if (multi && typeof multi === 'string') {
+    return multi.split(',').map((k) => normalizeKeyEdge(k)).filter(Boolean);
+  }
+  const single = normalizeKeyEdge(process.env.CAJA_KEY);
+  return single ? [single] : [];
+}
+
 async function timingSafeEqualHash(a: string, b: string): Promise<boolean> {
   const encoder = new TextEncoder();
   const aBuf = await crypto.subtle.digest('SHA-256', encoder.encode(a));
@@ -26,18 +52,17 @@ async function timingSafeEqualHash(a: string, b: string): Promise<boolean> {
  */
 export async function verifyAdminKeyEdge(request: Request, path: string): Promise<boolean> {
   const secret = process.env.ADMIN_SECRET;
-  const accessKey = process.env.ACCESS_CONTROL_KEY;
-  const cajaKey = process.env.CAJA_KEY;
   if (!secret) return false;
 
   const headerKey = request.headers.get('x-admin-key');
   if (headerKey !== null && headerKey !== undefined) {
-    if (await timingSafeEqualHash(headerKey, secret)) return true;
-    if (accessKey && (await timingSafeEqualHash(headerKey, accessKey))) {
-      return pathAllowsRestrictedRole(path);
+    const provided = normalizeKeyEdge(headerKey);
+    if (await timingSafeEqualHash(provided, normalizeKeyEdge(secret))) return true;
+    for (const k of getAccessControlKeysEdge()) {
+      if (await timingSafeEqualHash(provided, k)) return pathAllowsRestrictedRole(path);
     }
-    if (cajaKey && (await timingSafeEqualHash(headerKey, cajaKey))) {
-      return pathAllowsRestrictedRole(path);
+    for (const k of getCajaKeysEdge()) {
+      if (await timingSafeEqualHash(provided, k)) return pathAllowsRestrictedRole(path);
     }
   }
 
