@@ -179,7 +179,14 @@ export default function TicketsRegaloPage() {
           quantity: giftQuantity,
         }),
       });
-      let data: { ok?: boolean; message?: string; error?: string; created?: number; access_token?: string };
+      let data: {
+        ok?: boolean;
+        message?: string;
+        error?: string;
+        created?: number;
+        access_token?: string;
+        pdf_base64?: string;
+      };
       try {
         data = (await res.json()) as typeof data;
       } catch {
@@ -195,6 +202,22 @@ export default function TicketsRegaloPage() {
         setGiftMessage({ type: 'error', message: msg });
         giftMessageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
+      }
+      if (data.pdf_base64) {
+        try {
+          const binary = atob(data.pdf_base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const blob = new Blob([bytes], { type: 'application/pdf' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'tickets-regalo.pdf';
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch {
+          // Si falla la descarga, se siguen mostrando los enlaces por token
+        }
       }
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/b6986c15-cff9-4156-9370-473ee8d4c21f', {

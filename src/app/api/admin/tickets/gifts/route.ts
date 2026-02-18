@@ -1,6 +1,8 @@
 import { verifyAdminKey } from '@/lib/admin-auth';
 import { requireSupabaseAdmin } from '@/lib/supabase';
 import { createAccessToken } from '@/lib/security/access-token';
+import { generateTicketsPDF, type TicketItemForPDF } from '@/lib/pdf';
+import type { OrderWithDetails } from '@/lib/types';
 import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -266,6 +268,104 @@ export async function POST(request: Request) {
 
   const accessToken = createAccessToken(externalReference);
 
+  // Generar PDF de inmediato para que se pueda descargar sin depender del token/enlace
+  let pdf_base64: string | null = null;
+  try {
+    const { data: orderRow, error: orderErr } = await supabase
+      .from('orders')
+      .select(
+        `
+        id,
+        external_reference,
+        inventory_id,
+        user_email,
+        amount,
+        status,
+        created_at,
+        inventory:inventory_id (
+          id,
+          event_id,
+          ticket_type_id,
+          total_capacity,
+          event:event_id ( id, name, date, venue ),
+          ticket_type:ticket_type_id ( id, name, price )
+        )
+      `
+      )
+      .eq('id', orderId)
+      .single();
+
+    if (!orderErr && orderRow?.inventory) {
+      const ord = orderRow as unknown as {
+        id: string;
+        external_reference: string;
+        inventory_id: string;
+        user_email: string;
+        amount: number;
+        status: string;
+        created_at: string;
+        inventory: {
+          id: string;
+          event_id: string;
+          ticket_type_id: string;
+          total_capacity: number;
+          event: { id: string; name: string; date: string; venue: string };
+          ticket_type: { id: string; name: string; price: number };
+        };
+      };
+
+      const orderWithDetails: OrderWithDetails = {
+        id: ord.id,
+        external_reference: ord.external_reference,
+        inventory_id: ord.inventory_id,
+        user_email: ord.user_email,
+        amount: ord.amount,
+        status: ord.status as 'pending' | 'paid' | 'rejected',
+        mp_payment_id: null,
+        created_at: new Date(ord.created_at),
+        inventory: {
+          id: ord.inventory.id,
+          event_id: ord.inventory.event_id,
+          ticket_type_id: ord.inventory.ticket_type_id,
+          total_capacity: ord.inventory.total_capacity,
+          event: {
+            id: ord.inventory.event.id,
+            name: ord.inventory.event.name,
+            date: new Date(ord.inventory.event.date),
+            venue: ord.inventory.event.venue,
+          },
+          ticket_type: {
+            id: ord.inventory.ticket_type.id,
+            name: ord.inventory.ticket_type.name,
+            price: ord.inventory.ticket_type.price,
+          },
+        },
+      };
+
+      const { data: ticketList } = await supabase
+        .from('tickets')
+        .select('id, qr_uuid')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: true });
+
+      const items: TicketItemForPDF[] = (ticketList ?? []).map((t) => {
+        const ticket = t as { id: string; qr_uuid?: string | null };
+        return {
+          order: orderWithDetails,
+          ticketId: ticket.id,
+          qr_uuid: ticket.qr_uuid ?? undefined,
+        };
+      });
+
+      if (items.length > 0) {
+        const pdfBuffer = await generateTicketsPDF(items);
+        pdf_base64 = Buffer.from(pdfBuffer).toString('base64');
+      }
+    }
+  } catch (pdfError) {
+    console.error('[gifts] Error generando PDF inmediato:', pdfError);
+  }
+
   return NextResponse.json({
     ok: true,
     message: 'Tickets regalo creados. Puedes verlos o descargar PDF abajo.',
@@ -275,5 +375,6 @@ export async function POST(request: Request) {
     ticket_type_name: target.ticket_type_name,
     external_reference: externalReference,
     access_token: accessToken,
+    pdf_base64: pdf_base64 ?? undefined,
   });
 }
