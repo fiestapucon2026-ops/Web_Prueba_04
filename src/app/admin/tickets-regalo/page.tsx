@@ -31,6 +31,23 @@ export default function TicketsRegaloPage() {
   const [lastAccessToken, setLastAccessToken] = useState<string | null>(null);
   const giftMessageRef = useRef<HTMLDivElement>(null);
 
+  // #region agent log
+  useEffect(() => {
+    if (lastAccessToken) {
+      fetch('http://127.0.0.1:7242/ingest/b6986c15-cff9-4156-9370-473ee8d4c21f', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: 'tickets-regalo/page.tsx:useEffect lastAccessToken',
+          message: 'links block should render',
+          data: { hypothesisId: 'C', hasToken: true },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    }
+  }, [lastAccessToken]);
+  // #endregion
+
   const checkAuth = useCallback(async () => {
     setLoading(true);
     try {
@@ -171,7 +188,31 @@ export default function TicketsRegaloPage() {
         giftMessageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
       }
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/b6986c15-cff9-4156-9370-473ee8d4c21f', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: 'tickets-regalo/page.tsx:POST response',
+          message: 'gifts POST success',
+          data: { hypothesisId: 'A', ok: data?.ok, hasAccessToken: !!data?.access_token, created: data?.created },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       setLastAccessToken(data.access_token ?? null);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/b6986c15-cff9-4156-9370-473ee8d4c21f', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: 'tickets-regalo/page.tsx:setLastAccessToken',
+          message: 'state update',
+          data: { hypothesisId: 'B', tokenSet: !!data?.access_token },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
       setGiftMessage({
         type: 'success',
         message: `${data.message || 'Tickets regalo creados'}: ${data.created ?? giftQuantity}`,
