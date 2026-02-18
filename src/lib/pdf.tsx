@@ -15,63 +15,63 @@ const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
     backgroundColor: '#ffffff',
-    padding: 40,
+    padding: 32,
     fontFamily: 'Helvetica',
   },
   header: {
-    marginBottom: 30,
+    marginBottom: 16,
     borderBottom: '2 solid #1e40af',
-    paddingBottom: 15,
+    paddingBottom: 10,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1e40af',
-    marginBottom: 5,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6b7280',
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     color: '#111827',
-    marginBottom: 10,
+    marginBottom: 6,
     backgroundColor: '#f3f4f6',
-    padding: 8,
+    padding: 6,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
-    paddingVertical: 4,
+    marginBottom: 4,
+    paddingVertical: 2,
   },
   label: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#6b7280',
     fontWeight: 'bold',
   },
   value: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#111827',
   },
   footer: {
-    marginTop: 40,
-    paddingTop: 20,
+    marginTop: 16,
+    paddingTop: 10,
     borderTop: '1 solid #e5e7eb',
-    fontSize: 9,
+    fontSize: 8,
     color: '#6b7280',
     textAlign: 'center',
   },
   qrImage: {
-    width: 150,
-    height: 150,
-    marginTop: 20,
-    marginBottom: 10,
+    width: 130,
+    height: 130,
+    marginTop: 12,
+    marginBottom: 8,
     alignSelf: 'center',
   },
 });
@@ -94,16 +94,17 @@ const TicketPDFPage: React.FC<TicketPageProps> = ({ order, qrDataUrl }) => {
   const venue =
     order.inventory.event.venue?.replace(/Camping Pucón/g, 'Club de Rodeo Pucón') ??
     order.inventory.event.venue;
-  const orderDate = new Date(order.created_at).toLocaleDateString('es-CL', {
+  const orderDate = new Date(order.created_at).toLocaleString('es-CL', {
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
-    month: 'long',
-    day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 
   return (
-    <Page size="A4" style={styles.page}>
+    <Page size="LETTER" style={styles.page}>
       <View style={styles.header}>
         <Text style={styles.title}>Festival Pucón 2026</Text>
         {isRockLegendsDate && <Text style={styles.title}>PUCÓN ROCK LEGENDS 2026</Text>}
@@ -129,8 +130,8 @@ const TicketPDFPage: React.FC<TicketPageProps> = ({ order, qrDataUrl }) => {
           <Text style={styles.value}>{venue}</Text>
         </View>
         {(ticketTypeName === 'Familiar' || ticketTypeName === 'Estacionamiento Familiar') && (
-          <View style={{ marginTop: 10, paddingVertical: 6, paddingHorizontal: 8, backgroundColor: '#fef3c7' }}>
-            <Text style={{ fontSize: 11, color: '#92400e', fontWeight: 'bold' }}>
+          <View style={{ marginTop: 6, paddingVertical: 4, paddingHorizontal: 6, backgroundColor: '#fef3c7' }}>
+            <Text style={{ fontSize: 10, color: '#92400e', fontWeight: 'bold' }}>
               ⚠️ Entrada válida hasta las 17:00 hrs.
             </Text>
           </View>
