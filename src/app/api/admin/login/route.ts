@@ -9,8 +9,9 @@ function loginErrorMessage(adminSecretLen: number, providedLen: number): string 
   if (adminSecretLen === 0) {
     return 'Servidor sin ADMIN_SECRET. Configurar variable en Vercel (Production) y redeploy.';
   }
+  // No revelar longitud del admin a quien usa clave de Control de Acceso o Caja (Acceso1, Caja1, etc.)
   if (adminSecretLen !== providedLen) {
-    return `Clave inválida (longitud: ${providedLen}, servidor espera: ${adminSecretLen}).`;
+    return 'Clave incorrecta. Usa Control de Acceso (Acceso1–Acceso10) o Caja (Caja1–Caja4).';
   }
   return 'Clave inválida (longitud correcta; revisar caracteres o copiar de nuevo).';
 }

@@ -146,10 +146,8 @@ export default function ScannerPageV2() {
         }
         if (secretLen !== null && providedLen !== null) {
           const s = Number(secretLen);
-          const p = Number(providedLen);
           if (s === 0) msg = 'Servidor sin ADMIN_SECRET. Configurar en Vercel (Production) y redeploy.';
-          else if (s !== p) msg = `Longitud incorrecta: ingresaste ${p} caracteres; servidor espera ${s}.`;
-          else if (!msg) msg = 'Clave incorrecta (longitud correcta; contenido distinto).';
+          else if (!msg) msg = 'Clave incorrecta. Usa Control de Acceso (Acceso1–Acceso10) o Caja (Caja1–Caja4).';
         }
         setLoginError(msg || 'Clave incorrecta');
         return;
