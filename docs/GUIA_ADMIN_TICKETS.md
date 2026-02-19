@@ -80,11 +80,10 @@ Ahí se controlan las variables de tickets: capacidad, precios y umbrales por d�
 | Paso | Acción |
 |------|--------|
 | 1 | Abrir **https://www.festivalpucon.cl/admin/informe-20feb** |
-| 2 | Iniciar sesión con la **clave de administrador**. |
-| 3 | Se muestra el informe al instante (consulta en ese momento): título del Festival, fecha del evento, **fecha y hora del informe**, tabla con Vendidos / Regalados / Valorizado (CLP) por tipo y total. |
-| 4 | Opcional: «Actualizar informe» para refrescar datos; se puede imprimir la pantalla. |
+| 2 | Se muestra el informe al instante (consulta en ese momento): título del Festival, fecha del evento, **fecha y hora del informe**, tabla con Vendidos / Regalados / Valorizado (CLP) por tipo y total. |
+| 3 | Opcional: recargar la página para refrescar datos; se puede imprimir la pantalla. |
 
-- Solo lectura. No se ingresa nada; una sola pantalla con aspecto de informe formal.
+- Acceso por enlace (sin clave). Solo lectura. Una sola pantalla con aspecto de informe formal.
 
 ---
 
@@ -127,7 +126,7 @@ Ahí se controlan las variables de tickets: capacidad, precios y umbrales por d�
 | Validar QR (entrada manual) | https://www.festivalpucon.cl/admin/validar-qr |
 | Tickets de regalo | https://www.festivalpucon.cl/admin/tickets-regalo |
 | Stock y precios (administrar variables) | https://www.festivalpucon.cl/admin/stock |
-| Informe 20 Feb (vendidos/regalados, solo lectura) | https://www.festivalpucon.cl/admin/informe-20feb |
+| Informe 20 Feb (vendidos/regalados, sin clave) | https://www.festivalpucon.cl/admin/informe-20feb |
 | Estado de tickets (usado/sin usar) | https://www.festivalpucon.cl/admin/estado-tickets |
 | Ventas / Órdenes | https://www.festivalpucon.cl/admin/ventas |
 
@@ -135,7 +134,7 @@ Ahí se controlan las variables de tickets: capacidad, precios y umbrales por d�
 
 ## 7. Claves (recordatorio)
 
-- **Administrador (todo):** una sola clave configurada en el servidor (ADMIN_SECRET). Necesaria para: imprimir por día, tickets regalo, stock y precios, informe 20 Feb, estado de tickets, ventas/órdenes.
+- **Administrador (todo):** una sola clave configurada en el servidor (ADMIN_SECRET). Necesaria para: imprimir por día, tickets regalo, stock y precios, estado de tickets, ventas/órdenes. (El informe 20 Feb es público por enlace, no requiere clave.)
 - **Control de Acceso (10 usuarios):** Acceso1, Acceso2, … Acceso10. Solo scanner / validar QR; no validan PROMO como entrada.
 - **Caja (4 usuarios):** Caja1, Caja2, Caja3, Caja4. Solo scanner / validar QR; pueden validar todos los tipos.
 

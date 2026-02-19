@@ -1,5 +1,3 @@
-import crypto from 'crypto';
-import { verifyAdminKey } from '@/lib/admin-auth';
 import { requireSupabaseAdmin } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
@@ -16,38 +14,8 @@ function categoryFromTypeName(name: string): Category {
   return 'Entrada';
 }
 
-function timingSafeEqualStr(a: string, b: string): boolean {
-  try {
-    const bufA = Buffer.from(a, 'utf8');
-    const bufB = Buffer.from(b, 'utf8');
-    if (bufA.length !== bufB.length) return false;
-    return crypto.timingSafeEqual(bufA, bufB);
-  } catch {
-    return false;
-  }
-}
-
-/** Quita espacios, saltos de línea y BOM para comparar clave (evita fallos por copiar/pegar en Vercel). */
-function normalizeViewerKey(s: string): string {
-  return s.replace(/\s/g, '').replace(/\uFEFF/g, '');
-}
-
-/** GET: Informe de tickets vendidos y regalados para el 20 de febrero. Acceso: admin o viewer_key (solo lectura). */
-export async function GET(request: Request) {
-  const role = verifyAdminKey(request);
-  const url = new URL(request.url);
-  const viewerKeyRaw = url.searchParams.get('viewer_key')?.trim() ?? '';
-  const envViewerKeyRaw = (process.env.INFORME_20FEB_VIEWER_KEY ?? '').trim();
-  const viewerKey = normalizeViewerKey(viewerKeyRaw);
-  const envViewerKey = normalizeViewerKey(envViewerKeyRaw);
-
-  const allowedByAdmin = role === 'admin';
-  const allowedByViewer = envViewerKey.length > 0 && viewerKey.length > 0 && timingSafeEqualStr(viewerKey, envViewerKey);
-
-  if (!allowedByAdmin && !allowedByViewer) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  }
-
+/** GET: Informe de tickets vendidos y regalados para el 20 de febrero. Acceso público por URL. */
+export async function GET() {
   try {
     const supabase = requireSupabaseAdmin();
 

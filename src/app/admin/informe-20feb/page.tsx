@@ -30,38 +30,24 @@ function formatReportDateTime(iso: string): string {
 }
 
 export default function Informe20FebPage() {
-  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ReportData | null>(null);
-  const [inputKey, setInputKey] = useState('');
-  const [loginError, setLoginError] = useState('');
 
-  const fetchReport = useCallback(async (viewerKey?: string): Promise<boolean> => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const url = viewerKey
-        ? `/api/admin/reports/tickets-20feb?viewer_key=${encodeURIComponent(viewerKey)}`
-        : '/api/admin/reports/tickets-20feb';
-      const res = await fetch(url, { credentials: 'include' });
-      if (res.status === 401) {
-        setAuthenticated(false);
-        return false;
-      }
+      const res = await fetch('/api/admin/reports/tickets-20feb');
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
         setError((json as { error?: string }).error || 'Error al cargar el informe');
-        return false;
+        return;
       }
       const json = (await res.json()) as ReportData;
       setData(json);
-      setAuthenticated(true);
-      return true;
     } catch {
       setError('Error de conexión');
-      setAuthenticated(false);
-      return false;
     } finally {
       setLoading(false);
     }
@@ -70,87 +56,6 @@ export default function Informe20FebPage() {
   useEffect(() => {
     fetchReport();
   }, [fetchReport]);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-    const key = inputKey.trim();
-    if (!key) {
-      setLoginError('Ingresa la clave de administrador o la clave de solo lectura del informe');
-      return;
-    }
-    setLoading(true);
-    try {
-      const reportOk = await fetchReport(key);
-      if (reportOk) {
-        setInputKey('');
-        return;
-      }
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ key }),
-      });
-      if (res.status === 401) {
-        setLoginError('Clave incorrecta');
-        return;
-      }
-      if (!res.ok) {
-        setLoginError('Error al iniciar sesión');
-        return;
-      }
-      setInputKey('');
-      setAuthenticated(true);
-      await fetchReport();
-    } catch {
-      setLoginError('Error de conexión');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' });
-    setAuthenticated(false);
-    setData(null);
-  };
-
-  if (authenticated === null && loading) {
-    return (
-      <main className="min-h-screen bg-slate-900 px-4 py-12 text-white flex items-center justify-center">
-        <p className="text-slate-400">Cargando...</p>
-      </main>
-    );
-  }
-
-  if (!authenticated) {
-    return (
-      <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
-        <div className="mx-auto max-w-sm">
-          <h1 className="text-xl font-bold mb-4">Informe 20 de febrero</h1>
-          <p className="text-slate-400 mb-4">Administradores: clave completa. Terceros: clave de solo lectura del informe (la recibirás por separado).</p>
-          <form onSubmit={handleLogin} className="space-y-3">
-            <input
-              type="password"
-              value={inputKey}
-              onChange={(e) => setInputKey(e.target.value)}
-              placeholder="Pega aquí la clave (admin o solo lectura)"
-              className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-white placeholder-slate-500"
-            />
-            {loginError && <p className="text-sm text-red-400">{loginError}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded bg-[#cc0000] px-4 py-2 font-semibold text-white hover:bg-[#b30000] disabled:opacity-50"
-            >
-              Entrar
-            </button>
-          </form>
-        </div>
-      </main>
-    );
-  }
 
   if (error) {
     return (
@@ -181,15 +86,8 @@ export default function Informe20FebPage() {
   return (
     <main className="min-h-screen bg-white text-gray-900">
       <div className="mx-auto max-w-3xl px-6 py-10 print:py-6">
-        <div className="flex items-center justify-between border-b border-gray-300 pb-4 mb-6 print:mb-4">
+        <div className="border-b border-gray-300 pb-4 mb-6 print:mb-4">
           <h1 className="text-2xl font-bold text-gray-900">Festival Pucón 2026</h1>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="text-sm text-gray-600 hover:text-gray-900 border border-gray-400 px-3 py-1.5 rounded print:hidden"
-          >
-            Cerrar sesión
-          </button>
         </div>
 
         <h2 className="text-lg font-semibold text-gray-800 mb-1">
