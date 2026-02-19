@@ -30,7 +30,13 @@ export function TicketCard({ ticket }: TicketCardProps) {
   useEffect(() => {
     let cancelled = false;
     import('qrcode')
-      .then((QRCode) => QRCode.toDataURL(ticket.qr_token, { width: 200, margin: 1 }))
+      .then((QRCode) =>
+        QRCode.toDataURL(ticket.qr_token, {
+          width: 220,
+          margin: 2,
+          errorCorrectionLevel: 'H',
+        })
+      )
       .then((url) => {
         if (!cancelled) setQrDataUrl(url);
       })

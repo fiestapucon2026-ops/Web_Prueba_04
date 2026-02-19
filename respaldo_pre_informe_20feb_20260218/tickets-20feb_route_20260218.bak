@@ -3,8 +3,6 @@ import { requireSupabaseAdmin } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
 const EVENT_DATE = '2026-02-20';
-/** Solo se incluyen órdenes creadas desde esta fecha (excluye datos de pruebas de producción). */
-const REPORT_ORDERS_FROM = '2025-08-16T00:00:00.000Z';
 
 type Category = 'Entrada' | 'Estacionamiento' | 'PROMO';
 
@@ -64,8 +62,7 @@ export async function GET(request: Request) {
       .from('orders')
       .select('id, inventory_id, amount, quantity')
       .in('inventory_id', invIds)
-      .eq('status', 'paid')
-      .gte('created_at', REPORT_ORDERS_FROM);
+      .eq('status', 'paid');
 
     if (ordErr) {
       return NextResponse.json({ error: 'Error al cargar órdenes' }, { status: 500 });
@@ -102,13 +99,14 @@ export async function GET(request: Request) {
       }
     }
 
-    const rows: Array<{ tipo: Category; vendidos: number; valorizado: number }> = [
-      { tipo: 'Entrada', vendidos: byCategory.get('Entrada')!.vendidos, valorizado: byCategory.get('Entrada')!.valorizado },
-      { tipo: 'Estacionamiento', vendidos: byCategory.get('Estacionamiento')!.vendidos, valorizado: byCategory.get('Estacionamiento')!.valorizado },
-      { tipo: 'PROMO', vendidos: byCategory.get('PROMO')!.vendidos, valorizado: byCategory.get('PROMO')!.valorizado },
+    const rows: Array<{ tipo: Category; vendidos: number; regalados: number; valorizado: number }> = [
+      { tipo: 'Entrada', ...byCategory.get('Entrada')! },
+      { tipo: 'Estacionamiento', ...byCategory.get('Estacionamiento')! },
+      { tipo: 'PROMO', ...byCategory.get('PROMO')! },
     ];
 
     const totalVendidos = rows.reduce((a, r) => a + r.vendidos, 0);
+    const totalRegalados = rows.reduce((a, r) => a + r.regalados, 0);
     const totalValorizado = rows.reduce((a, r) => a + r.valorizado, 0);
 
     return NextResponse.json({
@@ -117,6 +115,7 @@ export async function GET(request: Request) {
       generated_at: new Date().toISOString(),
       by_type: rows,
       total_vendidos: totalVendidos,
+      total_regalados: totalRegalados,
       total_valorizado: Math.round(totalValorizado),
     });
   } catch (e) {

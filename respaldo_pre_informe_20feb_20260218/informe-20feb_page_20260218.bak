@@ -6,6 +6,7 @@ import Link from 'next/link';
 type ReportRow = {
   tipo: 'Entrada' | 'Estacionamiento' | 'PROMO';
   vendidos: number;
+  regalados: number;
   valorizado: number;
 };
 
@@ -15,6 +16,7 @@ type ReportData = {
   generated_at: string;
   by_type: ReportRow[];
   total_vendidos: number;
+  total_regalados: number;
   total_valorizado: number;
 };
 
@@ -203,6 +205,7 @@ export default function Informe20FebPage() {
             <tr className="bg-gray-100">
               <th className="border border-gray-300 px-4 py-3 font-semibold">Tipo</th>
               <th className="border border-gray-300 px-4 py-3 font-semibold text-right">Vendidos</th>
+              <th className="border border-gray-300 px-4 py-3 font-semibold text-right">Regalados</th>
               <th className="border border-gray-300 px-4 py-3 font-semibold text-right">Valorizado (CLP)</th>
             </tr>
           </thead>
@@ -211,6 +214,7 @@ export default function Informe20FebPage() {
               <tr key={row.tipo} className="border-b border-gray-200">
                 <td className="border border-gray-300 px-4 py-3">{row.tipo}</td>
                 <td className="border border-gray-300 px-4 py-3 text-right">{row.vendidos}</td>
+                <td className="border border-gray-300 px-4 py-3 text-right">{row.regalados}</td>
                 <td className="border border-gray-300 px-4 py-3 text-right">
                   ${row.valorizado.toLocaleString('es-CL')}
                 </td>
@@ -219,6 +223,7 @@ export default function Informe20FebPage() {
             <tr className="bg-gray-50 font-semibold">
               <td className="border border-gray-300 px-4 py-3">Total</td>
               <td className="border border-gray-300 px-4 py-3 text-right">{data.total_vendidos}</td>
+              <td className="border border-gray-300 px-4 py-3 text-right">{data.total_regalados}</td>
               <td className="border border-gray-300 px-4 py-3 text-right">
                 ${data.total_valorizado.toLocaleString('es-CL')}
               </td>
@@ -226,12 +231,16 @@ export default function Informe20FebPage() {
           </tbody>
         </table>
 
-        <p className="mt-4 text-sm text-gray-700">
-          Nota: Son valores con IVA y no incluye el descuento de Mercado Pago por usar su sistema.
+        <p className="mt-8 text-xs text-gray-500 print:mt-6">
+          Documento generado el {formatReportDateTime(data.generated_at)}. Solo uso interno.
         </p>
 
-        <p className="mt-8 text-xs text-gray-500 print:mt-6">
-          Documento generado hasta {formatReportDateTime(data.generated_at)}. Solo uso interno.
+        <p className="mt-6 text-sm text-gray-500 print:hidden">
+          <Link href="/admin/stock" className="underline">Volver al stock</Link>
+          {' · '}
+          <button type="button" onClick={() => fetchReport()} className="underline">
+            Actualizar informe
+          </button>
         </p>
       </div>
     </main>

@@ -178,6 +178,9 @@ export function CustomerForm({ onSubmit, disabled = false, compact = false }: Cu
         <label htmlFor="customer-email" className={labelClass}>
           Email
         </label>
+        <p className={compact ? 'mb-1 text-xs font-medium text-amber-400' : 'mb-2 text-sm font-medium text-amber-400'}>
+          IMPORTANTE: A este correo llegarán tus entradas.
+        </p>
         <input
           id="customer-email"
           type="email"

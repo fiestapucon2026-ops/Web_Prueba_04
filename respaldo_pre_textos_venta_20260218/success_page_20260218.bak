@@ -90,9 +90,6 @@ function SuccessContent() {
             Haz clic en &quot;Ver e imprimir mis entradas&quot; en esta misma pestaña.
           </p>
         )}
-        <div className="mb-6 p-4 rounded-lg border-2 border-amber-500 bg-amber-500/10 text-amber-200 text-left text-sm font-medium">
-          ⚠️ ¡IMPORTANTE! GUARDA TU ENTRADA — Tu respaldo para ingresar es el PDF o la captura de pantalla del ticket. Asegúrate de guardarlo ahora mismo. El código QR será escaneado en la entrada.
-        </div>
         <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
           <Link
             href={primaryHref}

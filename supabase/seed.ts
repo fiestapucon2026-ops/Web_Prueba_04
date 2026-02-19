@@ -24,6 +24,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const EVENT_DATES_2026: string[] = [
   '2026-02-06', '2026-02-07', '2026-02-08',
   '2026-02-13', '2026-02-14', '2026-02-15',
+  '2026-02-18', // Día de prueba para scanner (tickets regalo)
   '2026-02-20', '2026-02-21', '2026-02-22',
   '2026-02-27', '2026-02-28', '2026-03-01',
 ];

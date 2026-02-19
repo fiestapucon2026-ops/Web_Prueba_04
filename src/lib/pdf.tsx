@@ -68,8 +68,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   qrImage: {
-    width: 130,
-    height: 130,
+    width: 140,
+    height: 140,
     marginTop: 12,
     marginBottom: 8,
     alignSelf: 'center',
@@ -175,7 +175,11 @@ const TicketPDFPage: React.FC<TicketPageProps> = ({ order, qrDataUrl }) => {
 /** Genera imagen QR (data URL) para el token del ticket. Solo servidor. Import dinámico evita module-not-found en build Vercel. */
 async function qrDataUrlForToken(token: string): Promise<string> {
   const { default: QRCode } = await import('qrcode');
-  return QRCode.toDataURL(token, { width: 300, margin: 1 });
+  return QRCode.toDataURL(token, {
+    width: 400,
+    margin: 2,
+    errorCorrectionLevel: 'H',
+  });
 }
 
 /**
