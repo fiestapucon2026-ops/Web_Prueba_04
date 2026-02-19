@@ -3,8 +3,8 @@ import { requireSupabaseAdmin } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
 const EVENT_DATE = '2026-02-20';
-/** Solo se incluyen órdenes creadas desde esta fecha (excluye datos de pruebas de producción). */
-const REPORT_ORDERS_FROM = '2026-02-16T00:00:00.000Z';
+/** Solo se incluyen órdenes creadas desde esta fecha (excluye datos de pruebas). 03:00 UTC = 00:00 Chile (UTC-3). */
+const REPORT_ORDERS_FROM = '2026-02-16T03:00:00.000Z';
 
 type Category = 'Entrada' | 'Estacionamiento' | 'PROMO';
 
