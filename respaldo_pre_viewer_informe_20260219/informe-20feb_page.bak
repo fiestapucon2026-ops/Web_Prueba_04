@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 
 type ReportRow = {
   tipo: 'Entrada' | 'Estacionamiento' | 'PROMO';
@@ -37,14 +38,11 @@ export default function Informe20FebPage() {
   const [inputKey, setInputKey] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  const fetchReport = useCallback(async (viewerKey?: string): Promise<boolean> => {
+  const fetchReport = useCallback(async (): Promise<boolean> => {
     setLoading(true);
     setError(null);
     try {
-      const url = viewerKey
-        ? `/api/admin/reports/tickets-20feb?viewer_key=${encodeURIComponent(viewerKey)}`
-        : '/api/admin/reports/tickets-20feb';
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch('/api/admin/reports/tickets-20feb', { credentials: 'include' });
       if (res.status === 401) {
         setAuthenticated(false);
         return false;
@@ -74,23 +72,17 @@ export default function Informe20FebPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
-    const key = inputKey.trim();
-    if (!key) {
-      setLoginError('Ingresa la clave de administrador o la clave de solo lectura del informe');
+    if (!inputKey.trim()) {
+      setLoginError('Ingresa la clave de administrador');
       return;
     }
     setLoading(true);
     try {
-      const reportOk = await fetchReport(key);
-      if (reportOk) {
-        setInputKey('');
-        return;
-      }
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ key }),
+        body: JSON.stringify({ key: inputKey.trim() }),
       });
       if (res.status === 401) {
         setLoginError('Clave incorrecta');
@@ -129,13 +121,13 @@ export default function Informe20FebPage() {
       <main className="min-h-screen bg-slate-900 px-4 py-12 text-white">
         <div className="mx-auto max-w-sm">
           <h1 className="text-xl font-bold mb-4">Informe 20 de febrero</h1>
-          <p className="text-slate-400 mb-4">Administradores: clave completa. Terceros: clave de solo lectura del informe (la recibirás por separado).</p>
+          <p className="text-slate-400 mb-4">Solo administradores. Clave ADMIN_SECRET.</p>
           <form onSubmit={handleLogin} className="space-y-3">
             <input
               type="password"
               value={inputKey}
               onChange={(e) => setInputKey(e.target.value)}
-              placeholder="Pega aquí la clave (admin o solo lectura)"
+              placeholder="Clave de administrador"
               className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-white placeholder-slate-500"
             />
             {loginError && <p className="text-sm text-red-400">{loginError}</p>}
@@ -147,6 +139,9 @@ export default function Informe20FebPage() {
               Entrar
             </button>
           </form>
+          <p className="mt-4 text-sm text-slate-500">
+            <Link href="/admin/stock" className="underline">Volver al admin</Link>
+          </p>
         </div>
       </main>
     );
@@ -165,6 +160,9 @@ export default function Informe20FebPage() {
           >
             Reintentar
           </button>
+          <p className="mt-4 text-sm text-slate-500">
+            <Link href="/admin/stock" className="underline">Volver al admin</Link>
+          </p>
         </div>
       </main>
     );
