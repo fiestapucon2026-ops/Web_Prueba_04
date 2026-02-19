@@ -43,6 +43,8 @@ export async function proxy(request: NextRequest) {
   if (path.startsWith('/api/admin')) {
     if ((path === '/api/admin/login' || path === '/api/admin/logout') && request.method === 'POST') {
       // Login y logout no requieren auth
+    } else if (path === '/api/admin/reports/tickets-20feb' && request.method === 'GET') {
+      // Informe 20 feb: acceso público por URL (sin clave)
     } else {
       const ok = await verifyAdminKeyEdge(request, path);
       if (!ok) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
